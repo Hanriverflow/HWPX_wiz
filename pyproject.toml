@@ -1,0 +1,10 @@
+[project]
+name = "hwpx-wiz"
+version = "0.1.0"
+description = "Local HWP/HWPX automation workspace"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "lxml>=6.1,<7",
+    "python-hwpx>=6.3,<7",
+    "pywin32>=312; sys_platform == 'win32'",
+]

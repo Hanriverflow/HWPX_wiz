@@ -1,0 +1,21 @@
+.venv/
+.gstack/
+.omo/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Local configuration and logs
+.env
+.env.*
+!.env.example
+*.log
+~$*
+
+# Local document work areas
+inbox/*
+!inbox/.gitkeep
+output/*
+!output/.gitkeep
