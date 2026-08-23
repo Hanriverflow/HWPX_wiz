@@ -19,6 +19,10 @@
 .PARAMETER LogPath
     Optional. Path to a log file. If specified, all activity is appended to this file.
 
+.PARAMETER Password
+    Optional deterministic document password. Supplying a wrong password must
+    fail without allowing Word to display an interactive password prompt.
+
 .EXAMPLE
     .\Convert-DocToDocx.ps1 -Path "C:\Reports" -Recurse -Overwrite
 
@@ -41,11 +45,17 @@ param(
     [switch]$Overwrite,
 
     [Parameter(Mandatory = $false)]
-    [string]$LogPath
+    [string]$LogPath,
+
+    [Parameter(Mandatory = $false)]
+    [Alias("Password")]
+    [string]$DocumentKey
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+$isDotSourced = $MyInvocation.InvocationName -eq "."
+$script:ConversionLogPath = $LogPath
 
 #region Logging
 
@@ -62,13 +72,13 @@ function Write-Log {
     $entry     = "[$timestamp] [$Level] $Message"
 
     switch ($Level) {
-        "ERROR" { Write-Host $entry -ForegroundColor Red }
-        "WARN"  { Write-Host $entry -ForegroundColor Yellow }
-        default { Write-Host $entry }
+        "ERROR" { Write-Information $entry -InformationAction Continue }
+        "WARN"  { Write-Information $entry -InformationAction Continue }
+        default { Write-Information $entry -InformationAction Continue }
     }
 
-    if ($LogPath) {
-        $entry | Out-File -FilePath $LogPath -Append -Encoding UTF8
+    if ($script:ConversionLogPath) {
+        $entry | Out-File -FilePath $script:ConversionLogPath -Append -Encoding UTF8
     }
 }
 
@@ -76,7 +86,7 @@ function Write-Log {
 
 #region File Discovery
 
-function Get-DocFiles {
+function Get-DocFile {
     param(
         [Parameter(Mandatory)]
         [string]$InputPath,
@@ -130,48 +140,12 @@ function Close-WordDocument {
         try {
             [void][System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($Document)
         }
-        catch { }
-    }
-}
-
-function Stop-WordProcess {
-    <#
-    .SYNOPSIS
-        Last-resort cleanup; kills any orphaned WINWORD process started by this session.
-    #>
-    param([int]$ProcessId)
-
-    if ($ProcessId -le 0) { return }
-
-    try {
-        $proc = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
-        if ($null -ne $proc -and -not $proc.HasExited) {
-            Write-Log "Force-killing orphaned Word process (PID $ProcessId)." -Level WARN
-            Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
+        catch {
+            Write-Log "Could not release Word document COM object - $($_.Exception.Message)" -Level WARN
         }
     }
-    catch { }
 }
 
-function Get-ComObjectProcessId {
-    <#
-    .SYNOPSIS
-        Retrieves the PID of a COM-spawned Word instance via Win32 API.
-    #>
-    param([System.__ComObject]$WordApp)
-
-    try {
-        $hwnd = $WordApp.Application.Hwnd
-        $pid  = [uint32]0
-        $null = [Win32Api.User32]::GetWindowThreadProcessId([IntPtr]$hwnd, [ref]$pid)
-        return [int]$pid
-    }
-    catch {
-        return 0
-    }
-}
-
-# P/Invoke for GetWindowThreadProcessId
 if (-not ([System.Management.Automation.PSTypeName]"Win32Api.User32").Type) {
     Add-Type -Namespace Win32Api -Name User32 -MemberDefinition @"
         [System.Runtime.InteropServices.DllImport("user32.dll")]
@@ -179,17 +153,122 @@ if (-not ([System.Management.Automation.PSTypeName]"Win32Api.User32").Type) {
 "@
 }
 
+function Get-WordProcess {
+    param([System.__ComObject]$WordApp)
+
+    $probeDocument = $null
+    try {
+        $probeDocument = $WordApp.Documents.Add()
+        $windowHandle = $probeDocument.ActiveWindow.Hwnd
+        if ($null -eq $windowHandle -or [int]$windowHandle -eq 0) {
+            return $null
+        }
+
+        [uint32]$ownedProcessId = 0
+        $null = [Win32Api.User32]::GetWindowThreadProcessId(
+            [IntPtr]$windowHandle,
+            [ref]$ownedProcessId
+        )
+        if ($ownedProcessId -le 0) {
+            return $null
+        }
+
+        return Get-Process -Id $ownedProcessId -ErrorAction Stop
+    }
+    catch {
+        Write-Log "Could not resolve Word process - $($_.Exception.Message)" -Level WARN
+        return $null
+    }
+    finally {
+        Close-WordDocument -Document $probeDocument
+    }
+}
+
+function Stop-OwnedWordProcess {
+    [CmdletBinding(SupportsShouldProcess)]
+    param([System.Diagnostics.Process]$Process)
+
+    if ($null -eq $Process) { return }
+
+    try {
+        if ($Process.HasExited) { return }
+        if ($Process.WaitForExit(5000)) { return }
+
+        if ($PSCmdlet.ShouldProcess("WINWORD process $($Process.Id)", "Force stop")) {
+            Write-Log "Force-killing orphaned Word process (PID $($Process.Id))." -Level WARN
+            $Process.Kill()
+        }
+    }
+    catch {
+        Write-Log "Could not inspect or stop owned Word process - $($_.Exception.Message)" -Level WARN
+    }
+}
+
 #endregion
 
 #region Main Execution
 
-Write-Log "Script started. Path=$Path | Recurse=$Recurse | Overwrite=$Overwrite"
-
 # 1. Collect target files
-$docFiles = @(Get-DocFiles -InputPath $Path -IncludeChildren:$Recurse)
+$docFiles = @(Get-DocFile -InputPath $Path -IncludeChildren:$Recurse)
+
+if ($LogPath) {
+    $logParent = Split-Path -Parent ([System.IO.Path]::GetFullPath($LogPath))
+    if ([string]::IsNullOrWhiteSpace($logParent)) {
+        $logParent = (Get-Location).Path
+    }
+    if (-not (Test-Path -LiteralPath $logParent -PathType Container)) {
+        $record = [pscustomobject]@{
+            Status = "Failed"
+            Source = $Path
+            Target = $null
+            Reason = "LogPath parent does not exist"
+            Error = "LogPath parent does not exist: $logParent"
+        }
+        Write-Information $record.Error -InformationAction Continue
+        if ($isDotSourced) {
+            return @($record)
+        }
+        $record
+        exit 1
+    }
+
+    $fullLogPath = [System.IO.Path]::GetFullPath($LogPath)
+    $logCandidates = @(
+        foreach ($docFile in $docFiles) {
+            $docFile.FullName
+            [System.IO.Path]::ChangeExtension($docFile.FullName, ".docx")
+        }
+    )
+    $logConflicts = @(
+        $logCandidates |
+            Where-Object {
+                [System.StringComparer]::OrdinalIgnoreCase.Equals($_, $fullLogPath)
+            }
+    )
+    if ($logConflicts.Count -gt 0) {
+        $record = [pscustomobject]@{
+            Status = "Failed"
+            Source = $Path
+            Target = $fullLogPath
+            Reason = "LogPath conflicts with a source or output"
+            Error = "LogPath must not overwrite a source or output: $fullLogPath"
+        }
+        Write-Information $record.Error -InformationAction Continue
+        if ($isDotSourced) {
+            return @($record)
+        }
+        $record
+        exit 1
+    }
+}
+
+Write-Log "Script started. Path=$Path | Recurse=$Recurse | Overwrite=$Overwrite"
 
 if ($docFiles.Count -eq 0) {
     Write-Log "No .doc files found under '$Path'." -Level WARN
+    if ($isDotSourced) {
+        return @()
+    }
     exit 0
 }
 
@@ -201,19 +280,43 @@ $skipped   = [System.Collections.Generic.List[pscustomobject]]::new()
 $failed    = [System.Collections.Generic.List[pscustomobject]]::new()
 
 # 3. Word COM Automation
-$word      = $null
-$wordPid   = 0
+$word        = $null
+$wordProcess = $null
+$wordPid     = 0
+$wordProvenance = "Unknown"
+$wordUserControl = $null
+$originalDisplayAlerts = $null
+$originalAutomationSecurity = $null
+$originalUpdateLinks = $null
+$settingsCaptured = $false
 $wdFormatXMLDocument = 12   # .docx (Open XML); wdFormatXMLDocument enum value
 
 try {
     $word              = New-Object -ComObject Word.Application
+    $originalDisplayAlerts = $word.DisplayAlerts
+    $originalAutomationSecurity = $word.AutomationSecurity
+    $originalUpdateLinks = $word.Options.UpdateLinksAtOpen
+    $settingsCaptured = $true
     $word.Visible      = $false
     $word.DisplayAlerts = 0   # wdAlertsNone
     $word.AutomationSecurity = 3   # msoAutomationSecurityForceDisable
     $word.Options.UpdateLinksAtOpen = $false
 
-    $wordPid = Get-ComObjectProcessId -WordApp $word
-    Write-Log "Word COM instance created (PID $wordPid)."
+    try {
+        $wordUserControl = [bool]$word.UserControl
+    }
+    catch {
+        Write-Log "Could not resolve Word UserControl state - $($_.Exception.Message)" -Level WARN
+    }
+
+    $wordProcess = Get-WordProcess -WordApp $word
+    if ($null -ne $wordProcess) {
+        $wordPid = $wordProcess.Id
+    }
+    if ($null -ne $wordUserControl) {
+        $wordProvenance = if ($wordUserControl) { "Borrowed" } else { "Owned" }
+    }
+    Write-Log "Word COM instance created (PID $wordPid, provenance $wordProvenance)."
 
     $totalFiles  = $docFiles.Count
     $currentFile = 0
@@ -231,51 +334,99 @@ try {
         # Skip logic
         if ((Test-Path -LiteralPath $targetPath) -and -not $Overwrite) {
             $skipped.Add([pscustomobject]@{
+                Status = "Skipped"
                 Source = $sourcePath
                 Target = $targetPath
                 Reason = "Target already exists"
+                Error = $null
             })
             Write-Log "Skipped (exists): $sourcePath" -Level WARN
             continue
         }
 
-        if ((Test-Path -LiteralPath $targetPath) -and $Overwrite) {
-            Remove-Item -LiteralPath $targetPath -Force
-            Write-Log "Removed existing target: $targetPath"
-        }
-
         # Convert
         $document = $null
+        $backupPath = $null
+        [string]$stagedPath = Join-Path $file.DirectoryName (
+            ".{0}.{1}.docx" -f $file.BaseName, [Guid]::NewGuid().ToString("N")
+        )
 
         try {
+            $passwordDocument = if ($DocumentKey) { $DocumentKey } else { [Type]::Missing }
             # Open: ConfirmConversions=$false, ReadOnly=$true, AddToRecentFiles=$false
             $document = $word.Documents.Open(
                 $sourcePath,        # FileName
                 $false,             # ConfirmConversions
                 $true,              # ReadOnly
                 $false,             # AddToRecentFiles
-                [Type]::Missing,    # PasswordDocument
+                $passwordDocument,  # PasswordDocument
                 [Type]::Missing,    # PasswordTemplate
-                $true               # Revert (revert if already open)
+                $false              # Revert (preserve changes in an already-open document)
             )
 
-            $document.SaveAs2([ref]$targetPath, [ref]$wdFormatXMLDocument)
+            $document.SaveAs2([ref]$stagedPath, [ref]$wdFormatXMLDocument)
+            Close-WordDocument -Document $document
+            $document = $null
+
+            if (-not (Test-Path -LiteralPath $stagedPath)) {
+                throw "Word did not create staged DOCX output: $stagedPath"
+            }
+
+            if (Test-Path -LiteralPath $targetPath) {
+                if (-not $Overwrite) {
+                    throw "Target appeared during conversion: $targetPath"
+                }
+                [string]$backupPath = Join-Path $file.DirectoryName (
+                    ".{0}.{1}.backup.docx" -f $file.BaseName, [Guid]::NewGuid().ToString("N")
+                )
+                [System.IO.File]::Replace($stagedPath, $targetPath, $backupPath)
+            }
+            else {
+                [System.IO.File]::Move($stagedPath, $targetPath)
+            }
+            $stagedPath = $null
+            if ($backupPath -and (Test-Path -LiteralPath $backupPath)) {
+                Remove-Item -LiteralPath $backupPath -Force
+                $backupPath = $null
+            }
 
             $converted.Add([pscustomobject]@{
+                Status = "Converted"
                 Source = $sourcePath
                 Target = $targetPath
+                Reason = $null
+                Error = $null
             })
             Write-Log "Converted: $sourcePath -> $targetPath"
         }
         catch {
             $failed.Add([pscustomobject]@{
+                Status = "Failed"
                 Source = $sourcePath
+                Target = $targetPath
+                Reason = $null
                 Error  = $_.Exception.Message
             })
             Write-Log "FAILED: $sourcePath - $($_.Exception.Message)" -Level ERROR
         }
         finally {
             Close-WordDocument -Document $document
+            if ($stagedPath -and (Test-Path -LiteralPath $stagedPath)) {
+                try {
+                    Remove-Item -LiteralPath $stagedPath -Force
+                }
+                catch {
+                    Write-Log "Could not remove staged DOCX '$stagedPath' - $($_.Exception.Message)" -Level WARN
+                }
+            }
+            if ($backupPath -and (Test-Path -LiteralPath $backupPath)) {
+                try {
+                    Remove-Item -LiteralPath $backupPath -Force
+                }
+                catch {
+                    Write-Log "Could not remove DOCX backup '$backupPath' - $($_.Exception.Message)" -Level WARN
+                }
+            }
         }
     }
 
@@ -283,7 +434,18 @@ try {
 }
 finally {
     # Graceful shutdown
-    if ($null -ne $word) {
+    if ($null -ne $word -and $settingsCaptured) {
+        try {
+            $word.DisplayAlerts = $originalDisplayAlerts
+            $word.AutomationSecurity = $originalAutomationSecurity
+            $word.Options.UpdateLinksAtOpen = $originalUpdateLinks
+        }
+        catch {
+            Write-Log "Could not restore Word application settings - $($_.Exception.Message)" -Level WARN
+        }
+    }
+
+    if ($null -ne $word -and $wordProvenance -eq "Owned") {
         try {
             $word.Quit([ref]0)
             Write-Log "Word COM instance closed gracefully."
@@ -295,13 +457,30 @@ finally {
             try {
                 [void][System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($word)
             }
-            catch { }
+            catch {
+                Write-Log "Could not release Word application COM object - $($_.Exception.Message)" -Level WARN
+            }
+        }
+    }
+    elseif ($null -ne $word) {
+        Write-Log "Word application provenance is $wordProvenance; leaving application running."
+    }
+
+    if ($null -ne $word -and $wordProvenance -ne "Owned") {
+        try {
+            [void][System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($word)
+        }
+        catch {
+            Write-Log "Could not release Word application COM object - $($_.Exception.Message)" -Level WARN
         }
     }
 
-    # Fallback: force-kill if still running
-    Start-Sleep -Milliseconds 500
-    Stop-WordProcess -ProcessId $wordPid
+    if ($null -eq $wordProcess -or $wordProvenance -ne "Owned") {
+        Write-Log "Word process is not owned; skipping force-stop." -Level WARN
+    }
+    else {
+        Stop-OwnedWordProcess -Process $wordProcess -Confirm:$false
+    }
 
     [GC]::Collect()
     [GC]::WaitForPendingFinalizers()
@@ -311,46 +490,46 @@ finally {
 
 #region Summary Report
 
-Write-Host ""
-Write-Host "===========================================" -ForegroundColor Cyan
-Write-Host "  CONVERSION SUMMARY" -ForegroundColor Cyan
-Write-Host "===========================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "  Converted : $($converted.Count)" -ForegroundColor Green
-Write-Host "  Skipped   : $($skipped.Count)"   -ForegroundColor Yellow
-Write-Host "  Failed    : $($failed.Count)"     -ForegroundColor Red
-Write-Host ""
+Write-Information "" -InformationAction Continue
+Write-Information "===========================================" -InformationAction Continue
+Write-Information "  CONVERSION SUMMARY" -InformationAction Continue
+Write-Information "===========================================" -InformationAction Continue
+Write-Information "" -InformationAction Continue
+Write-Information "  Converted : $($converted.Count)" -InformationAction Continue
+Write-Information "  Skipped   : $($skipped.Count)" -InformationAction Continue
+Write-Information "  Failed    : $($failed.Count)" -InformationAction Continue
+Write-Information "" -InformationAction Continue
 
 if ($converted.Count -gt 0) {
-    Write-Host "-- Converted --" -ForegroundColor Green
-    $converted | Format-Table Source, Target -AutoSize
+    Write-Information "-- Converted --" -InformationAction Continue
+    $converted | Format-Table Source, Target -AutoSize | Out-Host
 }
 
 if ($skipped.Count -gt 0) {
-    Write-Host "-- Skipped --" -ForegroundColor Yellow
-    $skipped | Format-Table Source, Target, Reason -AutoSize
+    Write-Information "-- Skipped --" -InformationAction Continue
+    $skipped | Format-Table Source, Target, Reason -AutoSize | Out-Host
 }
 
 if ($failed.Count -gt 0) {
-    Write-Host "-- Failed --" -ForegroundColor Red
-    $failed | Format-Table Source, Error -AutoSize
+    Write-Information "-- Failed --" -InformationAction Continue
+    $failed | Format-Table Source, Error -AutoSize | Out-Host
 }
 
 #endregion
 
 #region Pipeline Output & Exit
 
-# Emit structured output for pipeline consumers
-[pscustomobject]@{
-    TotalFiles    = $docFiles.Count
-    Converted     = $converted.Count
-    Skipped       = $skipped.Count
-    Failed        = $failed.Count
-    ConvertedList = $converted
-    SkippedList   = $skipped
-    FailedList    = $failed
+$records = @(
+    foreach ($record in $converted) { $record }
+    foreach ($record in $skipped) { $record }
+    foreach ($record in $failed) { $record }
+)
+
+if ($isDotSourced) {
+    return $records
 }
 
+$records
 if ($failed.Count -gt 0) {
     exit 1
 }
