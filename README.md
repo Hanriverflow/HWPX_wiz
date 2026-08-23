@@ -51,6 +51,70 @@ git clone --branch main https://github.com/jkf87/hwpx-skill.git C:\Users\Hank\.a
 git -C C:\Users\Hank\.agents\skills\hwpx describe --tags --exact-match HEAD
 ```
 
+## 다른 PC에서 동일하게 사용하기
+
+이 저장소는 다른 PC에 clone한 뒤 로컬 실행 환경만 준비하면 같은 방식으로
+사용할 수 있습니다. 저장소에 포함된 스크립트, 테스트, `uv.lock`,
+`tools/kordoc/package-lock.json`과 운영 문서는 공유되지만 `.venv`,
+`node_modules`, Codex MCP 등록, `hwpx` skill과 Herdr/OMO 설치는 PC별로
+다시 준비해야 합니다.
+
+### Windows 기준 설치 순서
+
+다른 PC에서 다음 명령을 실행합니다. 설치 경로는 해당 PC에 맞게 바꿔도
+되지만 이후 명령은 clone한 저장소 루트에서 실행해야 합니다.
+
+```powershell
+git clone https://github.com/Hanriverflow/HWPX_wiz.git `
+  "D:\Code\Projects\HWPX_wiz"
+Set-Location -LiteralPath "D:\Code\Projects\HWPX_wiz"
+
+uv sync --locked
+npm ci --prefix .\tools\kordoc
+
+Install-Module Pester -MinimumVersion 6.1.0 -Scope CurrentUser
+Install-Module PSScriptAnalyzer -MinimumVersion 1.25.0 -Scope CurrentUser
+
+node .\tools\kordoc\node_modules\kordoc\dist\cli.js --version
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File .\tools\verify.ps1
+```
+
+마지막 검증에서 다음 문장이 나오면 기본 환경 준비가 끝난 것입니다.
+
+```text
+Repository verification passed.
+```
+
+### PC마다 별도로 준비해야 하는 항목
+
+- 구형 `.doc` 변환: Microsoft Word desktop과 `Word.Application` COM
+- 문서 읽기·분석: Codex에 공식 Kordoc MCP 등록
+- HWPX 생성·편집: 사용자 계정의 공식 `hwpx` skill clone
+- Herdr workflow: Herdr, OMO 설치와 모델 인증
+- 실제 문서: 각 PC의 `inbox` 또는 `output`에 별도로 배치
+
+`C:\Users\Hank\.agents\skills\hwpx`처럼 사용자 이름이 들어간 경로는
+예시이므로 다른 PC의 사용자 계정에 맞게 바꿉니다. MCP 등록 상태는 다음으로
+확인합니다.
+
+```powershell
+codex mcp list
+```
+
+### 운영체제 호환성
+
+저장소의 DOC 변환과 전체 검증 게이트는 **Windows 기준**입니다. Word COM
+자동화를 사용하는 `.doc` → `.docx` 및 `.doc` → Markdown 변환은 Microsoft
+Word desktop이 없는 macOS/Linux에서 동일하게 실행할 수 없습니다.
+
+HWPX 분석이나 `uv` 기반 작업은 다른 운영체제에서 일부 사용할 수 있지만,
+이 저장소가 보장하는 검증 기준선은 Windows입니다. 다른 운영체제에서는
+Kordoc MCP와 `hwpx` skill의 별도 지원 조건을 먼저 확인해야 합니다.
+
+상세 옵션, overwrite 정책, 암호 문서, 문제 해결과 수동 확인 절차는
+[`docs/USAGE_GUIDE.md`](docs/USAGE_GUIDE.md)를 참고합니다.
+
 ## 일상 작업 흐름
 
 ### 1. 일반 문서 읽기·분석
