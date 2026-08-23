@@ -1,6 +1,10 @@
 .venv/
+tools/kordoc/node_modules/
 .gstack/
-.omo/
+.omo/*
+!.omo/omo.jsonc
+!.omo/prompts/
+!.omo/prompts/*.md
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -19,3 +23,6 @@ inbox/*
 !inbox/.gitkeep
 output/*
 !output/.gitkeep
+
+# Per-task Herdr/OMO execution contract
+GOAL.md

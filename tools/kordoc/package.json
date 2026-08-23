@@ -1,0 +1,7 @@
+{
+  "name": "hwpx-wiz-kordoc-local",
+  "private": true,
+  "dependencies": {
+    "kordoc": "4.9.0"
+  }
+}
