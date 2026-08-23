@@ -14,6 +14,22 @@ Herdr에서 PLAN/BUILD/VERIFY OMO 세션을 운영하는 방법은 [`docs/HERDR_
 > **처음 사용하는 분이라면:** [HWPX_wiz 실전 HTML 가이드 바로 보기](https://hanriverflow.github.io/HWPX_wiz/)
 > · [HTML 원본 파일](HWPX_wiz_easy_guide.html)
 
+## 프로젝트 성격과 원본 프로젝트 고지
+
+**HWPX_wiz는 다른 개발자가 만든 두 원본 프로젝트를 fork/기반으로
+활용하여, Windows 문서 작업의 사용성과 접근성을 높인 통합 프로젝트입니다.**
+이 저장소는 해당 원본 프로젝트 자체이거나 원 저작자를 대신하는 공식 배포본이
+아닙니다.
+
+- **[Kordoc](https://github.com/chrisryugj/kordoc)** — `chrisryugj/kordoc`의
+  원본 프로젝트를 기반으로 문서 읽기·구조 추출·비교·변환 작업을 연결합니다.
+- **[hwpx-skill](https://github.com/jkf87/hwpx-skill)** — `jkf87/hwpx-skill`의
+  원본 프로젝트를 기반으로 편집 가능한 HWPX 작성·수정·검증을 연결합니다.
+
+각 원본 프로젝트의 저작권, 라이선스와 원 저작자 표기는 해당 upstream
+프로젝트를 따릅니다. HWPX_wiz의 역할은 두 upstream을 Windows용 DOC 변환기,
+검증 도구와 운영 문서로 통합하여 사용성을 높이는 것입니다.
+
 ## 역할 분담
 
 | 작업 | 사용할 도구 |
