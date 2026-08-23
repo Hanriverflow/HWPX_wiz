@@ -1,0 +1,74 @@
+{
+  "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/omo.schema.json",
+  "[senpi]": {
+    "models": {
+      "sol-high": {
+        "model": "openai-codex/gpt-5.6-sol",
+        "reasoning": "high"
+      },
+      "sol-xhigh": {
+        "model": "openai-codex/gpt-5.6-sol",
+        "reasoning": "xhigh"
+      },
+      "luna-low": {
+        "model": "openai-codex/gpt-5.6-luna",
+        "reasoning": "low"
+      },
+      "luna-xhigh": {
+        "model": "openai-codex/gpt-5.6-luna",
+        "reasoning": "xhigh"
+      }
+    },
+    "categories": {
+      "quick": {
+        "model": "luna-low"
+      },
+      "deep": {
+        "model": "luna-xhigh",
+        "prompt_append": "Preserve the complete requested scope, fix root causes, and verify the result with concrete evidence."
+      },
+      "unspecified-low": {
+        "model": "luna-xhigh"
+      },
+      "unspecified-high": {
+        "model": "luna-xhigh"
+      },
+      "visual-engineering": {
+        "model": "luna-xhigh"
+      },
+      "ultrabrain": {
+        "model": "sol-xhigh"
+      },
+      "writing": {
+        "model": "sol-high"
+      }
+    },
+    "agents": {
+      "explore": {
+        "model": "luna-low"
+      },
+      "librarian": {
+        "model": "luna-low"
+      },
+      "metis": {
+        "model": "sol-high"
+      },
+      "momus": {
+        "model": "sol-xhigh"
+      }
+    },
+    "task": {
+      "default_execution_mode": "in-process",
+      "default_concurrency": 4,
+      "max_depth": 1,
+      "resume_children": true,
+      "reattach_on_reconcile": true,
+      "wait": {
+        "default_ms": 90000
+      }
+    }
+  },
+  "_migrations": [
+    "2026-08-reasoning-unification"
+  ]
+}
