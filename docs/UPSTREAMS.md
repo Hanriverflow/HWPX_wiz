@@ -18,20 +18,60 @@
 
 ## 검증된 기준선
 
-2026-08-22에 다음 상태를 확인했습니다.
+2026-08-23에 다음 상태를 확인했습니다.
 
 | 구성 요소 | 기준선 |
 |---|---|
-| Kordoc | `4.9.0` (`kordoc@4`가 해석한 최신 4.x) |
-| hwpx-skill | `v1.17.0` / `0a7709aca5c0e66b9a94f8f335a5b28a5060af19` |
+| Kordoc | `4.9.1` (`kordoc@4`가 해석한 최신 4.x) |
+| hwpx-skill | `v1.17.0` / `96a2633f23a08f707679d7e212ebdc59948260e6` |
 | Python 패키지 | `uv.lock` |
 
 현재 MCP와 DOC→Markdown 변환기는
-`cmd.exe /d /s /c npx -y kordoc@4.9.0 mcp` 및 `kordoc@4.9.0`으로 검증
+`npx.cmd -y kordoc@4.9.1 mcp` 및 `kordoc@4.9.1`으로 검증
 기준선을 고정합니다. 새 버전은 아래 호환성 게이트를 통과한 뒤 MCP 설정,
 변환기와 이 문서의 기준선을 함께 갱신합니다.
 
 ## 업데이트 절차
+
+### 새 버전 확인과 승인
+
+새 버전 확인은 전용 스크립트로 수행합니다. 기본 실행은 npm registry와
+공식 `hwpx-skill` 원격을 읽기만 하며, 로컬 파일과 외부 clone을 변경하지
+않습니다.
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File .\tools\update-upstreams.ps1
+```
+
+보고서에서 후보 버전과 현재 작업 트리 상태를 검토한 뒤에만 적용합니다.
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File .\tools\update-upstreams.ps1 -Apply
+```
+
+`-Apply`는 구성 요소별로 다시 확인을 요청합니다. 이미 승인한 후보를
+자동화 환경에서 적용할 때만 `-Yes`를 함께 사용합니다.
+
+```powershell
+# 특정 Kordoc 후보를 명시
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File .\tools\update-upstreams.ps1 `
+  -Component Kordoc -KordocVersion 4.9.1 -Apply
+
+# hwpx-skill만 확인·적용
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File .\tools\update-upstreams.ps1 `
+  -Component HwpxSkill -Apply
+```
+
+스크립트는 Kordoc의 같은 major 최신 버전을 기본 후보로 선택하고, major
+업데이트는 자동 선택하지 않습니다. `hwpx-skill`에 변경 사항이 있거나
+`main`이 아니면 `pull --ff-only` 전에 중단합니다. Kordoc 적용 후에는
+`tools/verify.ps1`, Codex MCP 등록, README와 이 문서의 버전 pin을 함께
+검토합니다. 확인을 자동화하되 적용은 막으려면 `-FailOnUpdate`를 사용하고,
+업데이트가 발견되면 종료 코드 `10`을 처리합니다.
 
 upstream은 한 번에 하나씩 업데이트합니다.
 
@@ -66,8 +106,8 @@ npm ci --prefix .\tools\kordoc
 node .\tools\kordoc\node_modules\kordoc\dist\cli.js --version
 ```
 
-변환기는 `tools\kordoc\package-lock.json`의 정확한 `kordoc@4.9.0`만
-사용합니다. MCP 등록용 `npx -y kordoc@4.9.0 mcp`와 달리, 변환 경로에는
+변환기는 `tools\kordoc\package-lock.json`의 정확한 `kordoc@4.9.1`만
+사용합니다. MCP 등록용 `npx.cmd -y kordoc@4.9.1 mcp`와 달리, 변환 경로에는
 registry-backed `npx` 호출을 사용하지 않습니다.
 
 ## 호환성 게이트

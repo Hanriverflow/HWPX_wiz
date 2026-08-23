@@ -41,7 +41,7 @@ codex mcp list
 ```
 
 `kordoc` 항목의 명령은 검증된 버전을 고정한
-`cmd.exe /d /s /c npx -y kordoc@4.9.0 mcp`입니다. 새 Codex 작업에서
+`npx.cmd -y kordoc@4.9.1 mcp`입니다. 새 Codex 작업에서
 Kordoc 도구를 사용하면 됩니다.
 
 공식 `hwpx` skill이 없다면 다음 위치에 설치합니다.
@@ -185,7 +185,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\tools\doc-to-docx\con
 Kordoc은 호환성 검증을 마친 정확한 버전을 사용합니다. 버전 확인:
 
 ```powershell
-cmd /c npx -y kordoc@4.9.0 --version
+npx.cmd -y kordoc@4.9.1 --version
 ```
 
 설치된 `hwpx` skill은 먼저 로컬 변경 여부를 확인한 뒤 fast-forward로만 갱신합니다.
@@ -194,6 +194,53 @@ cmd /c npx -y kordoc@4.9.0 --version
 git -C C:\Users\Hank\.agents\skills\hwpx status -sb
 git -C C:\Users\Hank\.agents\skills\hwpx pull --ff-only
 ```
+
+### 새 버전 확인과 승인된 업데이트
+
+새 버전은 자동으로 설치하지 않는다. 먼저 읽기 전용 확인을 실행한다.
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File .\tools\update-upstreams.ps1
+```
+
+이 명령은 다음을 확인하고 보고한다.
+
+- npm의 현재 Kordoc 고정 버전, 같은 major의 최신 버전, 전체 최신 버전
+- 별도 `hwpx-skill` clone의 현재 tag·commit·branch·변경 여부
+- `hwpx-skill` 공식 `main`의 최신 commit
+
+새 버전이 있어도 기본 모드에서는 파일과 외부 clone을 변경하지 않는다.
+업데이트를 검토한 뒤에만 다음 명령으로 적용을 시작한다.
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File .\tools\update-upstreams.ps1 -Apply
+```
+
+`-Apply`는 구성 요소별로 다시 확인을 요청한다. `-Yes`는 이미 검토한
+버전을 자동화 환경에서 적용할 때만 `-Apply`와 함께 사용한다.
+
+```powershell
+# Kordoc 4.x 후보만 확인·적용
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File .\tools\update-upstreams.ps1 `
+  -Component Kordoc -KordocVersion 4.9.1 -Apply
+
+# hwpx-skill만 fast-forward로 적용
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File .\tools\update-upstreams.ps1 `
+  -Component HwpxSkill -Apply
+```
+
+이 프로세스의 안전장치:
+
+- Kordoc major 업데이트는 자동 선택하지 않는다.
+- `hwpx-skill`에 로컬 변경이 있거나 `main`이 아니면 중단한다.
+- `hwpx-skill`은 `git pull --ff-only`만 사용한다.
+- Kordoc 적용 후 `tools/verify.ps1`와 관련 문서·MCP pin을 검토해야 한다.
+- 확인만 자동화하려면 `-FailOnUpdate`를 사용한다. 업데이트가 있으면
+  종료 코드 `10`을 반환한다.
 
 Python 패키지를 새 버전으로 올릴 때만 잠금 파일을 갱신합니다.
 

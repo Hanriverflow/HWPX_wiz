@@ -89,7 +89,7 @@ Describe "Repository verifier" {
         $lockPath = Join-Path $script:RepoRoot "tools\kordoc\package-lock.json"
 
         Get-LockedKordocVersion -LockPath $lockPath -NodePath $nodePath |
-            Should -Be ([version]"4.9.0")
+            Should -Be ([version]"4.9.1")
     }
 
     It "restores the caller location when dot-sourced" {

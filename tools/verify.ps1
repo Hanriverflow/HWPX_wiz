@@ -21,7 +21,7 @@ $ErrorActionPreference = "Stop"
 $script:VerifierRoot = Split-Path -Parent $PSScriptRoot
 $script:MinimumPester = [version]"6.1.0"
 $script:MinimumAnalyzer = [version]"1.25.0"
-$script:RequiredKordocVersion = [version]"4.9.0"
+$script:RequiredKordocVersion = [version]"4.9.1"
 
 function Get-InstalledModuleVersion {
     param(
