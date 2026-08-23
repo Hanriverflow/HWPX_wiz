@@ -26,9 +26,10 @@
 | hwpx-skill | `v1.17.0` / `0a7709aca5c0e66b9a94f8f335a5b28a5060af19` |
 | Python 패키지 | `uv.lock` |
 
-현재 MCP 명령은 `cmd /c npx -y kordoc@4 mcp`이므로 새 4.x가 나오면 자동으로
-선택됩니다. 결과 재현성이 더 중요한 작업에서는 검증된 정확한 버전
-(`kordoc@4.9.0` 형식)을 사용하고, 새 버전 검증이 끝난 뒤 기준선을 갱신합니다.
+현재 MCP와 DOC→Markdown 변환기는
+`cmd.exe /d /s /c npx -y kordoc@4.9.0 mcp` 및 `kordoc@4.9.0`으로 검증
+기준선을 고정합니다. 새 버전은 아래 호환성 게이트를 통과한 뒤 MCP 설정,
+변환기와 이 문서의 기준선을 함께 갱신합니다.
 
 ## 업데이트 절차
 
@@ -37,7 +38,7 @@ upstream은 한 번에 하나씩 업데이트합니다.
 1. `HWPX_wiz`와 대상 upstream의 작업 트리가 깨끗한지 확인합니다.
 2. `chore/update-<component>-<date>` 브랜치를 만듭니다.
 3. 업데이트 전 버전 또는 커밋을 기록합니다.
-4. Kordoc은 후보 버전을 명시해 실행하고, hwpx-skill은 `pull --ff-only`만
+4. Kordoc은 정확한 후보 버전을 명시해 실행하고, hwpx-skill은 `pull --ff-only`만
    사용합니다.
 5. 아래 호환성 게이트를 통과한 뒤 기준선과 관련 잠금 파일을 갱신합니다.
 6. 의존성별로 독립된 커밋을 만들고 `main`에 반영합니다.
@@ -58,15 +59,50 @@ uv lock --upgrade-package python-hwpx
 uv sync --locked
 ```
 
+로컬 Kordoc 변환기 갱신:
+
+```powershell
+npm ci --prefix .\tools\kordoc
+node .\tools\kordoc\node_modules\kordoc\dist\cli.js --version
+```
+
+변환기는 `tools\kordoc\package-lock.json`의 정확한 `kordoc@4.9.0`만
+사용합니다. MCP 등록용 `npx -y kordoc@4.9.0 mcp`와 달리, 변환 경로에는
+registry-backed `npx` 호출을 사용하지 않습니다.
+
 ## 호환성 게이트
+
+저장소 자체의 기본 검증 게이트는 저장소 루트에서 먼저 실행합니다.
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify.ps1
+```
 
 업데이트 후 최소한 다음 작업을 실제 문서 표면에서 확인합니다.
 
 1. Kordoc으로 대표 HWPX 또는 PDF를 읽고 구조를 추출합니다.
-2. `convert-doc-to-md.bat`으로 DOC → DOCX → Markdown 변환을 수행합니다.
+2. 인자를 무시하는 `convert-doc-to-docx.bat`과 `convert-doc-to-md.bat`이 프로젝트 `inbox`를 처리하는지 확인합니다. 특정 파일이나 폴더는 `tools/doc-to-docx/convert-doc-to-docx.ps1` 또는 `convert-doc-to-md.ps1`에 `-Path`로 전달해 변환합니다.
 3. hwpx-skill로 HWPX를 새로 만들고 다시 편집합니다.
 4. namespace 수정, strict 검사와 layout 검증을 통과시킵니다.
 5. 한컴오피스에서 최종 HWPX를 열어 페이지, 표와 글꼴을 눈으로 확인합니다.
+6. 위 저장소 검증 게이트를 통과시킵니다.
+
+검증기는 도구를 자동 설치하지 않습니다. Pester 6.1.0 이상과
+PSScriptAnalyzer 1.25.0 이상은 사용자가 사용자 범위에 설치하고, PATH의 `uv`와
+`uv sync --locked`로 만든 Python 환경도 준비해야 합니다. 실패 원인을 좁힐 때만
+저장소 루트에서 다음 개별 명령을 실행합니다.
+
+```powershell
+Import-Module Pester -MinimumVersion 6.1.0 -Force
+Invoke-Pester -Path .\tests -Output Detailed
+Import-Module PSScriptAnalyzer -MinimumVersion 1.25.0 -Force
+Invoke-ScriptAnalyzer -Path .\tools -Recurse
+Invoke-ScriptAnalyzer -Path .\tests -Recurse
+uv lock --check
+```
+
+이 로컬 게이트는 호스팅 CI를 추가하지 않으며, 위 실제 문서 확인에 필요한 Word나
+한컴오피스의 설치 및 사용 가능 상태를 대신 해결하지 않습니다.
 
 검증 자료에는 개인정보가 없는 소형 문서만 사용합니다. 실제 업무 문서와 변환
 결과는 `inbox` 또는 `output`에 두고 Git으로 추적하지 않습니다.

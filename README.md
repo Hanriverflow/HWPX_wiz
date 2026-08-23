@@ -8,13 +8,17 @@
 
 기존 `Kordoc_helper` 애플리케이션과 자체 MCP는 사용하지 않습니다.
 
+정비 이력은 [`docs/MAINTENANCE_HANDOFF.md`](docs/MAINTENANCE_HANDOFF.md), 다음 개선 순서는 [`docs/ROADMAP.md`](docs/ROADMAP.md)를 참고합니다.
+Herdr에서 PLAN/BUILD/VERIFY OMO 세션을 운영하는 방법은 [`docs/HERDR_OMO_WORKFLOW.md`](docs/HERDR_OMO_WORKFLOW.md)를 따릅니다.
+
 ## 역할 분담
 
 | 작업 | 사용할 도구 |
 |---|---|
 | HWP/HWPX/DOCX/PDF/XLSX 내용 파악·비교 | Codex의 공식 Kordoc MCP |
 | 새 HWPX 작성, 기존 HWPX 편집·검증 | Codex의 `hwpx` skill + 이 프로젝트의 `uv` 환경 |
-| 구형 `.doc` → Markdown | `convert-doc-to-md.bat`으로 Word 변환 후 Kordoc 실행 |
+| `inbox`의 구형 `.doc` 변환 | 인자를 무시하는 `convert-doc-to-docx.bat` 또는 `convert-doc-to-md.bat` |
+| 특정 파일·폴더의 구형 `.doc` 변환 | `tools/doc-to-docx/convert-doc-to-docx.ps1` 또는 `convert-doc-to-md.ps1`에 `-Path` 지정 |
 | 경로가 지정된 문서 | 원본과 같은 폴더에 결과 저장 |
 | 경로 없는 DOC 임시 작업 | `inbox`에서 찾고 결과도 해당 DOC 옆에 저장 |
 | 별도 생성 문서·보고서·로그 | 필요할 때 `output` 사용 |
@@ -24,7 +28,7 @@
 Python은 전역 설치 대신 `uv`로만 관리합니다.
 
 ```powershell
-cd C:\CODE\Project\HWPX_wiz
+cd D:\Code\Projects\HWPX_wiz
 uv sync --locked
 ```
 
@@ -36,7 +40,16 @@ uv sync --locked
 codex mcp list
 ```
 
-`kordoc` 항목의 명령은 `cmd /c npx -y kordoc@4 mcp`입니다. 새 Codex 작업에서 Kordoc 도구를 사용하면 됩니다.
+`kordoc` 항목의 명령은 검증된 버전을 고정한
+`cmd.exe /d /s /c npx -y kordoc@4.9.0 mcp`입니다. 새 Codex 작업에서
+Kordoc 도구를 사용하면 됩니다.
+
+공식 `hwpx` skill이 없다면 다음 위치에 설치합니다.
+
+```powershell
+git clone --branch main https://github.com/jkf87/hwpx-skill.git C:\Users\Hank\.agents\skills\hwpx
+git -C C:\Users\Hank\.agents\skills\hwpx describe --tags --exact-match HEAD
+```
 
 ## 일상 작업 흐름
 
@@ -70,16 +83,18 @@ D:\문서\보고서.md
 
 통합 실행기를 직접 사용할 수도 있습니다.
 
-```bat
-convert-doc-to-md.bat "D:\문서\보고서.doc"
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\tools\doc-to-docx\convert-doc-to-md.ps1" `
+  -Path "D:\문서\보고서.doc"
 ```
 
-경로를 생략하고 더블클릭하면 `inbox` 아래의 `.doc`를 처리하되, `.docx`와 `.md`는 각 원본 `.doc` 옆에 생성합니다.
+루트의 `convert-doc-to-docx.bat`과 `convert-doc-to-md.bat`은 인자를 무시하고 프로젝트 `inbox`만 처리합니다. 특정 파일이나 폴더를 지정할 때는 `tools/doc-to-docx/convert-doc-to-docx.ps1` 또는 `tools/doc-to-docx/convert-doc-to-md.ps1`에 `-Path`를 사용합니다. `.docx`와 `.md`는 각 원본 `.doc` 옆에 생성됩니다.
 
-DOCX까지만 필요한 경우에는 기존 실행기를 사용합니다.
+DOCX까지만 필요한 경우에는 같은 방식의 DOCX 변환기를 사용합니다.
 
-```bat
-convert-doc-to-docx.bat "C:\문서\구형보고서.doc"
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\tools\doc-to-docx\convert-doc-to-docx.ps1" `
+  -Path "C:\문서\구형보고서.doc"
 ```
 
 기존 결과를 명시적으로 갱신하려면 PowerShell 통합 실행기에 `-Overwrite`를 사용합니다.
@@ -103,10 +118,10 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\tools\doc-to-docx\con
 
 ## 업데이트 원칙
 
-Kordoc은 `kordoc@4`로 메이저 버전을 고정해 실행할 때 최신 4.x를 사용합니다. 버전 확인:
+Kordoc은 호환성 검증을 마친 정확한 버전을 사용합니다. 버전 확인:
 
 ```powershell
-cmd /c npx -y kordoc@4 --version
+cmd /c npx -y kordoc@4.9.0 --version
 ```
 
 설치된 `hwpx` skill은 먼저 로컬 변경 여부를 확인한 뒤 fast-forward로만 갱신합니다.
@@ -119,12 +134,44 @@ git -C C:\Users\Hank\.agents\skills\hwpx pull --ff-only
 Python 패키지를 새 버전으로 올릴 때만 잠금 파일을 갱신합니다.
 
 ```powershell
-cd C:\CODE\Project\HWPX_wiz
+cd D:\Code\Projects\HWPX_wiz
 uv lock --upgrade-package python-hwpx
 uv sync --locked
 ```
 
 업데이트 직후에는 대표 HWPX 하나를 열기·저장·검증해 호환성을 확인하는 것이 좋습니다.
+
+## 저장소 검증
+
+개발·정비 후에는 저장소 루트에서 다음 한 명령을 기본 검증 게이트로 실행합니다.
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\verify.ps1
+```
+
+검증기는 Pester 6.1.0 이상, PSScriptAnalyzer 1.25.0 이상, PATH의 `uv`와
+`uv sync --locked`로 만든 Python 환경을 확인합니다. 필요한 도구는 자동으로
+설치하지 않습니다. 사용자가 다음 명령으로 사용자 범위 모듈과 잠금 환경을
+준비해야 합니다.
+
+```powershell
+Install-Module Pester -MinimumVersion 6.1.0 -Scope CurrentUser
+Install-Module PSScriptAnalyzer -MinimumVersion 1.25.0 -Scope CurrentUser
+uv sync --locked
+```
+
+게이트 실패 원인을 좁힐 때만 저장소 루트에서 개별 검사를 실행합니다.
+
+```powershell
+Import-Module Pester -MinimumVersion 6.1.0 -Force
+Invoke-Pester -Path .\tests -Output Detailed
+Import-Module PSScriptAnalyzer -MinimumVersion 1.25.0 -Force
+Invoke-ScriptAnalyzer -Path .\tools\doc-to-docx -Recurse
+uv lock --check
+```
+
+이 명령은 로컬 저장소 검증 게이트입니다. 호스팅 CI를 제공하지 않으며 Word나
+한컴오피스의 설치 또는 사용 가능 상태를 해결하지 않습니다.
 
 ## 안전 메모
 
@@ -132,5 +179,6 @@ uv sync --locked
 - 원본 문서는 삭제하지 않습니다.
 - 경로를 지정한 변환 결과는 원본 문서와 같은 폴더에 저장합니다.
 - 기존 `.docx`와 `.md`는 `-Overwrite`를 명시하지 않으면 덮어쓰지 않습니다.
+- `-Overwrite`도 임시 파일에 먼저 변환한 뒤 성공한 결과만 원자적으로 교체합니다.
 - `inbox`와 `output`의 실제 문서는 Git 추적 대상에서 제외됩니다.
-- `Kordoc_helper` 원본 저장소는 기존 미커밋 변경 보존을 위해 별도 확인 전까지 유지합니다.
+- Kordoc은 공식 npm 패키지와 MCP만 사용하며 별도 `Kordoc_helper` 체크아웃을 두지 않습니다.
