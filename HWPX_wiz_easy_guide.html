@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HWPX_wiz — 처음 쓰는 사람을 위한 실전 가이드</title>
+<style>
+:root{
+  --bg:#f6f8fb; --card:#ffffff; --ink:#172033; --muted:#64748b; --line:#dfe6ee;
+  --navy:#0b2b4f; --blue:#1465d9; --blue2:#eaf3ff; --teal:#0f8b8d; --teal2:#e7f7f7;
+  --amber:#b96b00; --amber2:#fff4df; --red:#b42318; --red2:#fff0ee; --green:#157347;
+  --shadow:0 8px 28px rgba(23,32,51,.08); --radius:18px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Apple SD Gothic Neo",sans-serif;line-height:1.65}
+a{color:inherit}
+button{font:inherit}
+.topbar{position:sticky;top:0;z-index:20;background:rgba(246,248,251,.92);backdrop-filter:blur(14px);border-bottom:1px solid rgba(223,230,238,.9)}
+.topbar-inner{max-width:1180px;margin:auto;padding:10px 22px;display:flex;align-items:center;gap:14px}
+.brand{font-weight:850;color:var(--navy);letter-spacing:-.02em;white-space:nowrap}
+.nav{display:flex;gap:8px;overflow:auto;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.nav a{text-decoration:none;padding:7px 10px;border-radius:999px;color:var(--muted);font-size:13px;white-space:nowrap}
+.nav a:hover{background:#fff;color:var(--blue)}
+.hero{background:linear-gradient(135deg,#071a31 0%,#0d3868 62%,#116a8b 100%);color:#fff}
+.hero-inner{max-width:1180px;margin:auto;padding:72px 22px 62px;display:grid;grid-template-columns:1.25fr .75fr;gap:36px;align-items:center}
+.eyebrow{font-size:13px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#9fd2ff}
+.hero h1{margin:6px 0 14px;font-size:clamp(34px,5vw,64px);line-height:1.05;letter-spacing:-.045em}
+.hero p{font-size:18px;color:#d8e7f7;max-width:760px;margin:0}
+.hero-card{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);border-radius:22px;padding:22px;box-shadow:0 16px 36px rgba(0,0,0,.16)}
+.hero-card strong{display:block;font-size:18px;margin-bottom:10px}
+.hero-card .mini{font-size:14px;color:#d8e7f7}
+.hero-badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:750;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18)}
+main{max-width:1180px;margin:auto;padding:34px 22px 80px}
+.section{scroll-margin-top:68px;margin-top:42px}
+.section:first-child{margin-top:0}
+.section h2{font-size:30px;line-height:1.25;letter-spacing:-.03em;margin:0 0 8px}
+.section .lead{margin:0 0 22px;color:var(--muted);font-size:16px}
+.grid{display:grid;gap:16px}
+.grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px;box-shadow:var(--shadow)}
+.card h3{margin:0 0 8px;font-size:19px;letter-spacing:-.02em}
+.card p{margin:0;color:var(--muted)}
+.kicker{display:inline-block;color:var(--blue);font-size:12px;font-weight:850;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.tool{position:relative;overflow:hidden}
+.tool:before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--blue)}
+.tool.teal:before{background:var(--teal)}
+.tool.amber:before{background:#e39a27}
+.tool.red:before{background:#d74336}
+.icon{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-weight:900;background:var(--blue2);color:var(--blue);margin-bottom:14px}
+.teal .icon{background:var(--teal2);color:var(--teal)}
+.amber .icon{background:var(--amber2);color:var(--amber)}
+.red .icon{background:var(--red2);color:var(--red)}
+.callout{border-radius:16px;padding:16px 18px;border:1px solid}
+.callout strong{display:block;margin-bottom:4px}
+.info{background:var(--blue2);border-color:#cfe3ff;color:#173a69}
+.warn{background:var(--amber2);border-color:#f4d9a7;color:#704600}
+.danger{background:var(--red2);border-color:#ffc9c3;color:#7c261e}
+.good{background:#edf9f2;border-color:#c7ead5;color:#245d3c}
+.flow{display:flex;align-items:stretch;gap:10px;flex-wrap:wrap;margin:12px 0}
+.node{flex:1 1 170px;min-width:170px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 15px}
+.node b{display:block;margin-bottom:3px}
+.arrow{display:grid;place-items:center;color:#8aa0b8;font-weight:900;font-size:22px;min-width:20px}
+.pill{display:inline-flex;padding:4px 8px;border-radius:999px;background:#eef2f7;color:#475569;font-size:11px;font-weight:800;margin-bottom:7px}
+table{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+th,td{padding:13px 14px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{background:#f8fafc;font-size:13px;color:#475569}
+tr:last-child td{border-bottom:0}
+td code{white-space:nowrap}
+.code-wrap{position:relative;margin:12px 0}
+pre{margin:0;background:#0c1727;color:#e5eef8;border-radius:14px;padding:17px 18px;overflow:auto;font-size:13px;line-height:1.55;box-shadow:inset 0 0 0 1px rgba(255,255,255,.05)}
+code{font-family:"Cascadia Code","SFMono-Regular",Consolas,monospace}
+.copy{position:absolute;top:9px;right:9px;border:0;border-radius:8px;background:#203149;color:#dce8f5;padding:6px 9px;font-size:11px;cursor:pointer}
+.copy:hover{background:#2c4565}
+.steps{counter-reset:step;display:grid;gap:12px}
+.step{counter-increment:step;display:grid;grid-template-columns:38px 1fr;gap:12px;align-items:start;background:#fff;border:1px solid var(--line);border-radius:14px;padding:15px}
+.step:before{content:counter(step);width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--navy);color:#fff;font-weight:850}
+.step b{display:block;margin-bottom:2px}
+.step p{margin:0;color:var(--muted)}
+.decision{display:grid;gap:10px}
+.choice{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center}
+.choice .q{font-weight:750}
+.choice .a{font-weight:850;color:var(--blue);white-space:nowrap}
+.shortcut{font-size:13px;color:var(--muted)}
+.checks{display:grid;gap:8px}
+.check{background:#fff;border:1px solid var(--line);border-radius:12px;padding:11px 13px;display:flex;gap:10px;align-items:flex-start}
+.check span:first-child{color:var(--green);font-weight:900}
+.kbd{display:inline-block;border:1px solid #cbd5e1;background:#f8fafc;border-bottom-width:2px;border-radius:6px;padding:1px 6px;font-family:monospace;font-size:.9em}
+.timeline{position:relative;padding-left:24px}
+.timeline:before{content:"";position:absolute;left:7px;top:7px;bottom:7px;width:2px;background:#d6e0ea}
+.titem{position:relative;margin:0 0 18px;padding-left:14px}
+.titem:before{content:"";position:absolute;left:-22px;top:7px;width:10px;height:10px;border-radius:50%;background:var(--blue);box-shadow:0 0 0 4px var(--blue2)}
+.titem b{display:block}
+.titem p{margin:2px 0 0;color:var(--muted)}
+.small{font-size:13px;color:var(--muted)}
+.footer{margin-top:54px;padding-top:24px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+@media(max-width:900px){
+  .hero-inner{grid-template-columns:1fr;padding-top:52px}
+  .grid-4,.grid-3{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:680px){
+  .grid-2,.grid-3,.grid-4{grid-template-columns:1fr}
+  .hero h1{font-size:40px}
+  .section h2{font-size:25px}
+  .arrow{display:none}
+  .flow{display:grid}
+  .choice{grid-template-columns:1fr}
+  .choice .a{white-space:normal}
+  main{padding-left:15px;padding-right:15px}
+  .topbar-inner{padding-left:14px;padding-right:14px}
+}
+@media print{
+  .topbar,.copy{display:none!important}
+  body{background:#fff}
+  .hero{background:#fff;color:#111;border-bottom:2px solid #111}
+  .hero p,.hero-card .mini{color:#444}
+  .hero-card{border:1px solid #ccc;box-shadow:none}
+  .card{box-shadow:none}
+  main{max-width:none}
+  .section{break-inside:avoid}
+}
+</style>
+<script type="text/javascript" nonce="4f81405811fe4764a783c88ddd3" src="//local.adguard.org?ts=1787483493977&amp;type=content-script&amp;dmn=chatgpt.com&amp;url=https%3A%2F%2Fchatgpt.com%2Fbackend-api%2Festuary%2Fcontent%3Fid%3Dfile_00000000e70481fa9347dec47f29bfc5%26fn%3DHWPX_wiz_easy_guide.html%26cd%3Dattachment%26ts%3D496523%26p%3Dfs%26cid%3D1%26sig%3De89c7619193641c14e9258056af0c38026609fcfb29a1d55dd5c6cc530cc958c%26v%3D0&amp;app=whale.exe&amp;css=2&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=1"></script><script type="text/javascript" nonce="4f81405811fe4764a783c88ddd3" src="//local.adguard.org?ts=1787483493977&amp;name=AdGuard%20Extra&amp;name=AdGuard%20Popup%20Blocker&amp;type=user-script"></script></head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">HWPX_wiz Guide</div>
+    <nav class="nav">
+      <a href="#mental">한눈에 이해</a>
+      <a href="#choose">도구 선택</a>
+      <a href="#setup">최초 설정</a>
+      <a href="#quick">빠른 사용</a>
+      <a href="#precision">정밀 사용</a>
+      <a href="#result">결과 해석</a>
+      <a href="#trouble">문제 해결</a>
+      <a href="#hwpx">HWP/HWPX</a>
+      <a href="#verify">검증</a>
+      <a href="#cheat">치트시트</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-inner">
+    <div>
+      <div class="eyebrow">Beginner-friendly operations guide</div>
+      <h1>HWPX_wiz,<br>이렇게 이해하면 쉽습니다.</h1>
+      <p>복잡한 한글·Word 문서 작업을 “어떤 도구를 써야 하는지”부터 “실패했을 때 어디를 볼지”까지 한 흐름으로 정리한 실전용 HTML 가이드입니다.</p>
+      <div class="hero-badges">
+        <span class="badge">Windows PowerShell</span>
+        <span class="badge">Kordoc 4.9.0</span>
+        <span class="badge">Microsoft Word desktop</span>
+        <span class="badge">Node.js / npm</span>
+        <span class="badge">uv</span>
+      </div>
+    </div>
+    <aside class="hero-card">
+      <strong>가장 중요한 한 문장</strong>
+      <div class="mini"><b>HWPX_wiz는 문서를 보관하는 프로그램이 아니라</b>, Kordoc·hwpx skill·Word 변환기를 상황에 맞게 연결하는 Windows용 통합 계층입니다.</div>
+      <div class="callout good" style="margin-top:16px">
+        <strong>따라서 먼저 “파일 형식 + 내가 하려는 일”을 판단하면 됩니다.</strong>
+        읽기/분석, HWPX 생성/편집, 구형 DOC 변환은 서로 다른 도구가 담당합니다.
+      </div>
+    </aside>
+  </div>
+</section>
+
+<main>
+<section class="section" id="mental">
+  <span class="kicker">01 · Mental Model</span>
+  <h2>먼저 구조를 머릿속에 넣기</h2>
+  <p class="lead">HWPX_wiz를 하나의 “문서 작업 안내 데스크”라고 생각하면 쉽습니다.</p>
+
+  <div class="grid grid-4">
+    <div class="card tool">
+      <div class="icon">R</div>
+      <h3>Kordoc MCP</h3>
+      <p><b>읽는 담당.</b> HWP/HWPX/DOCX/PDF/XLSX의 내용 읽기, 비교, 표·문단 구조 추출에 사용합니다.</p>
+    </div>
+    <div class="card tool teal">
+      <div class="icon">W</div>
+      <h3>hwpx skill</h3>
+      <p><b>쓰는 담당.</b> 새 HWPX 작성 또는 기존 HWPX 편집에 사용합니다.</p>
+    </div>
+    <div class="card tool amber">
+      <div class="icon">D</div>
+      <h3>DOC 변환기</h3>
+      <p><b>통역 담당.</b> 오래된 Word <code>.doc</code>를 Word COM으로 <code>.docx</code>로 바꿉니다.</p>
+    </div>
+    <div class="card tool red">
+      <div class="icon">✓</div>
+      <h3>verify.ps1</h3>
+      <p><b>건강검진 담당.</b> 환경, 버전, 테스트, lockfile 등이 정상인지 검사합니다.</p>
+    </div>
+  </div>
+
+  <div class="callout danger" style="margin-top:16px">
+    <strong>중요: 구형 <code>.doc</code>는 Kordoc에 바로 넣지 않습니다.</strong>
+    먼저 Microsoft Word를 통해 <code>.docx</code>로 변환한 뒤 Kordoc을 사용합니다.
+  </div>
+
+  <h3 style="margin-top:28px">대표 작업 흐름</h3>
+  <div class="flow">
+    <div class="node"><span class="pill">OLD FORMAT</span><b>보고서.doc</b><span class="small">Word 97–2003 형식</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><span class="pill">WORD COM</span><b>보고서.docx</b><span class="small">읽기 가능한 최신 형식</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><span class="pill">KORDOC</span><b>보고서.md / 분석</b><span class="small">내용 추출·요약·비교</span></div>
+  </div>
+</section>
+
+<section class="section" id="choose">
+  <span class="kicker">02 · Decision Tree</span>
+  <h2>무슨 도구를 쓰면 되나요?</h2>
+  <p class="lead">아래 네 줄만 기억하면 대부분의 상황을 처리할 수 있습니다.</p>
+
+  <div class="decision">
+    <div class="choice">
+      <div><div class="q">HWP/HWPX/DOCX/PDF/XLSX를 <b>읽거나 비교</b>하고 싶다</div><div class="shortcut">예: 표 추출, 두 계약서 비교, PDF 내용 분석</div></div>
+      <div class="a">→ 공식 Kordoc MCP</div>
+    </div>
+    <div class="choice">
+      <div><div class="q">새 HWPX를 <b>만들거나 편집</b>하고 싶다</div><div class="shortcut">예: 공문 HWPX 생성, 기존 HWPX 수정</div></div>
+      <div class="a">→ 공식 <code>hwpx</code> skill</div>
+    </div>
+    <div class="choice">
+      <div><div class="q">구형 Word <code>.doc</code>를 <code>.docx</code>로 바꾸고 싶다</div><div class="shortcut">Word desktop이 반드시 필요</div></div>
+      <div class="a">→ <code>convert-doc-to-docx.ps1</code></div>
+    </div>
+    <div class="choice">
+      <div><div class="q">구형 <code>.doc</code>를 <code>.docx</code> + Markdown까지 만들고 싶다</div><div class="shortcut">Word 변환 후 로컬 Kordoc CLI가 이어서 처리</div></div>
+      <div class="a">→ <code>convert-doc-to-md.ps1</code></div>
+    </div>
+  </div>
+
+  <div class="grid grid-2" style="margin-top:16px">
+    <div class="callout warn">
+      <strong><code>.bat</code> = “inbox 전용 원버튼 모드”</strong>
+      루트의 배치 파일은 경로 인자를 무시하고 프로젝트의 <code>inbox</code>만 처리합니다.
+    </div>
+    <div class="callout info">
+      <strong><code>.ps1 -Path</code> = “원하는 파일을 찍는 정밀 모드”</strong>
+      특정 파일이나 특정 폴더를 변환할 때는 PowerShell 스크립트에 <code>-Path</code>를 지정합니다.
+    </div>
+  </div>
+</section>
+
+<section class="section" id="setup">
+  <span class="kicker">03 · First Setup</span>
+  <h2>처음 한 번만 하는 환경 설정</h2>
+  <p class="lead">기준 예시 경로는 <code>D:\Code\Projects\HWPX_wiz</code>입니다. 실제 clone 경로가 다르면 바꾸면 됩니다.</p>
+
+  <div class="steps">
+    <div class="step">
+      <div>
+        <b>저장소 루트로 이동</b>
+        <div class="code-wrap"><button class="copy">복사</button><pre><code>Set-Location -LiteralPath "D:\Code\Projects\HWPX_wiz"</code></pre></div>
+      </div>
+    </div>
+    <div class="step">
+      <div>
+        <b>Python 환경 동기화</b>
+        <p>전역 <code>pip</code> 대신 <code>uv.lock</code> 기준으로 환경을 맞춥니다.</p>
+        <div class="code-wrap"><button class="copy">복사</button><pre><code>uv sync --locked</code></pre></div>
+        <div class="small">정상이면 <code>.venv\Scripts\python.exe</code>가 존재해야 합니다.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div>
+        <b>로컬 Kordoc CLI 설치</b>
+        <div class="code-wrap"><button class="copy">복사</button><pre><code>npm ci --prefix .\tools\kordoc
+
+node .\tools\kordoc\node_modules\kordoc\dist\cli.js --version</code></pre></div>
+        <div class="small">기준 버전은 <b>4.9.0</b>입니다.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div>
+        <b>검증 도구 설치</b>
+        <div class="code-wrap"><button class="copy">복사</button><pre><code>Install-Module Pester -MinimumVersion 6.1.0 -Scope CurrentUser
+Install-Module PSScriptAnalyzer -MinimumVersion 1.25.0 -Scope CurrentUser</code></pre></div>
+      </div>
+    </div>
+    <div class="step">
+      <div>
+        <b>Microsoft Word desktop 확인</b>
+        <p>구형 <code>.doc</code> 변환은 Windows의 <code>Word.Application</code> COM 자동화를 사용합니다. Word Online만으로는 안 됩니다.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div>
+        <b>Kordoc MCP와 hwpx skill 확인</b>
+        <div class="code-wrap"><button class="copy">복사</button><pre><code>codex mcp list</code></pre></div>
+        <div class="small">Kordoc MCP는 검증 기준인 <code>npx -y kordoc@4.9.0 mcp</code>를 사용합니다.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout info" style="margin-top:16px">
+    <strong>Python 스크립트도 프로젝트 환경에서 실행</strong>
+    <code>python script.py</code>보다 <code>uv run python .\path\to\script.py</code> 형식을 권장합니다.
+  </div>
+</section>
+
+<section class="section" id="quick">
+  <span class="kicker">04 · Quick Start</span>
+  <h2>가장 쉬운 사용법: <code>inbox</code>에 넣고 실행</h2>
+  <p class="lead">파일을 하나하나 지정할 필요 없이 구형 <code>.doc</code>를 일괄 처리할 때 적합합니다.</p>
+
+  <div class="grid grid-2">
+    <div class="card">
+      <h3>A. DOCX만 만들기</h3>
+      <div class="timeline">
+        <div class="titem"><b>1) <code>.doc</code>를 <code>inbox</code>에 복사</b><p>하위 폴더에 넣어도 검색합니다.</p></div>
+        <div class="titem"><b>2) 배치 파일 실행</b>
+          <div class="code-wrap"><button class="copy">복사</button><pre><code>.\convert-doc-to-docx.bat</code></pre></div>
+        </div>
+        <div class="titem"><b>3) 같은 폴더에서 결과 확인</b><p><code>보고서.doc</code> → <code>보고서.docx</code></p></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>B. DOCX + Markdown 만들기</h3>
+      <div class="timeline">
+        <div class="titem"><b>1) <code>.doc</code>를 <code>inbox</code>에 복사</b><p>원본은 그대로 보존됩니다.</p></div>
+        <div class="titem"><b>2) 통합 배치 파일 실행</b>
+          <div class="code-wrap"><button class="copy">복사</button><pre><code>.\convert-doc-to-md.bat</code></pre></div>
+        </div>
+        <div class="titem"><b>3) 결과 확인</b><p><code>보고서.doc</code> + <code>보고서.docx</code> + <code>보고서.md</code></p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout danger" style="margin-top:16px">
+    <strong>이 명령은 기대한 대로 동작하지 않습니다.</strong>
+    <code>.\convert-doc-to-docx.bat "D:\문서"</code>처럼 BAT 뒤에 경로를 줘도 그 경로는 무시됩니다. BAT는 항상 <code>inbox</code>만 처리합니다.
+  </div>
+</section>
+
+<section class="section" id="precision">
+  <span class="kicker">05 · Precision Mode</span>
+  <h2>특정 파일·폴더만 변환하려면</h2>
+  <p class="lead"><code>.ps1</code> 스크립트에 <code>-Path</code>를 직접 전달합니다.</p>
+
+  <div class="grid grid-2">
+    <div class="card">
+      <h3>특정 DOC 하나 → DOCX</h3>
+      <div class="code-wrap"><button class="copy">복사</button><pre><code>powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File ".\tools\doc-to-docx\convert-doc-to-docx.ps1" `
+  -Path "D:\문서\보고서.doc"</code></pre></div>
+    </div>
+    <div class="card">
+      <h3>특정 DOC 하나 → DOCX + MD</h3>
+      <div class="code-wrap"><button class="copy">복사</button><pre><code>powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File ".\tools\doc-to-docx\convert-doc-to-md.ps1" `
+  -Path "D:\문서\보고서.doc"</code></pre></div>
+    </div>
+    <div class="card">
+      <h3>폴더 바로 아래만</h3>
+      <div class="code-wrap"><button class="copy">복사</button><pre><code>powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File ".\tools\doc-to-docx\convert-doc-to-docx.ps1" `
+  -Path "D:\문서\구형자료"</code></pre></div>
+      <p class="small"><code>-Recurse</code>가 없으면 하위 폴더는 보지 않습니다.</p>
+    </div>
+    <div class="card">
+      <h3>하위 폴더까지 전부</h3>
+      <div class="code-wrap"><button class="copy">복사</button><pre><code>powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File ".\tools\doc-to-docx\convert-doc-to-md.ps1" `
+  -Path "D:\문서\구형자료" `
+  -Recurse</code></pre></div>
+    </div>
+  </div>
+
+  <h3 style="margin-top:26px">옵션을 쉬운 말로</h3>
+  <table>
+    <thead><tr><th>옵션</th><th>언제 쓰나</th><th>실무 해석</th></tr></thead>
+    <tbody>
+      <tr><td><code>-Path</code></td><td>항상</td><td>“어느 파일/폴더를 처리할지” 지정</td></tr>
+      <tr><td><code>-Recurse</code></td><td>폴더 + 하위 폴더까지</td><td>“밑에 있는 폴더도 다 찾아봐”</td></tr>
+      <tr><td><code>-Overwrite</code></td><td>기존 결과를 새로 만들 필요가 있을 때</td><td>“기존 결과를 안전하게 교체해”</td></tr>
+      <tr><td><code>-LogPath</code></td><td>DOC→DOCX 처리 로그 필요 시</td><td>“처리 기록을 이 파일에 남겨”</td></tr>
+      <tr><td><code>-DocumentKey</code> / <code>-Password</code></td><td>암호가 걸린 DOC</td><td>“이 암호로 문서를 열어”</td></tr>
+      <tr><td><code>-KordocCliPath</code></td><td>특수한 로컬 Kordoc 경로를 쓸 때만</td><td>일반 사용에서는 생략 권장</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout warn" style="margin-top:16px">
+    <strong>경로에 공백·한글·<code>&</code>·괄호가 있으면?</strong>
+    <code>-Path "D:\문서\보고서 &amp; 최종본.doc"</code>처럼 큰따옴표로 감싸면 됩니다.
+  </div>
+</section>
+
+<section class="section" id="safety">
+  <span class="kicker">06 · Safety</span>
+  <h2><code>-Overwrite</code>가 생각보다 안전한 이유</h2>
+  <p class="lead">이 도구는 기존 결과를 바로 덮어쓰는 방식이 아니라, 임시 파일과 복원 절차를 사용합니다.</p>
+
+  <div class="flow">
+    <div class="node"><b>1. Backup / Rollback</b><span class="small">기존 결과가 있으면 임시 백업</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>2. Staging</b><span class="small">GUID 기반 임시 DOCX/MD 생성</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>3. 전체 성공 확인</b><span class="small">모든 단계가 성공해야 다음 단계</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>4. 원자적 교체</b><span class="small">최종 파일로 교체 후 임시 파일 정리</span></div>
+  </div>
+
+  <div class="grid grid-2" style="margin-top:16px">
+    <div class="callout good">
+      <strong>실패하면</strong>
+      기존 DOCX/Markdown을 복원하고 새로 만든 중간 결과를 제거하도록 설계되어 있습니다.
+    </div>
+    <div class="callout danger">
+      <strong>그래도 예외는 있음</strong>
+      저장장치 오류, 권한 문제, 백신의 파일 잠금처럼 OS가 파일 교체 자체를 거부하면 잔류 파일과 오류 메시지를 확인해야 합니다.
+    </div>
+  </div>
+
+  <h3 style="margin-top:26px">Word 자동화도 안전 쪽으로 설정</h3>
+  <div class="checks">
+    <div class="check"><span>✓</span><span>문서를 읽기 전용으로 엽니다.</span></div>
+    <div class="check"><span>✓</span><span>매크로 실행과 자동 링크 업데이트를 끕니다.</span></div>
+    <div class="check"><span>✓</span><span>최종 DOCX는 변환 성공 전까지 교체하지 않습니다.</span></div>
+    <div class="check"><span>✓</span><span>변환기가 소유한 Word 프로세스만 종료 대상으로 삼습니다.</span></div>
+    <div class="check"><span>✓</span><span>원본 문서는 삭제하거나 덮어쓰지 않는 것이 기본 원칙입니다.</span></div>
+  </div>
+</section>
+
+<section class="section" id="result">
+  <span class="kicker">07 · Reading Results</span>
+  <h2>실행 결과는 무엇을 보면 되나요?</h2>
+  <p class="lead">복잡하게 볼 필요 없이 <b>Status → Error → 종료 코드</b> 순으로 보면 됩니다.</p>
+
+  <div class="grid grid-3">
+    <div class="card">
+      <span class="pill">SUCCESS</span>
+      <h3><code>Converted</code></h3>
+      <p>실제로 새 결과가 만들어졌습니다.</p>
+    </div>
+    <div class="card">
+      <span class="pill">NO CHANGE</span>
+      <h3><code>Skipped</code></h3>
+      <p>이미 결과가 최신이거나 처리할 필요가 없어 건너뛴 상태입니다.</p>
+    </div>
+    <div class="card">
+      <span class="pill">CHECK</span>
+      <h3><code>Failed</code></h3>
+      <p><code>Error</code> 메시지를 읽고 원인을 확인해야 합니다.</p>
+    </div>
+  </div>
+
+  <div class="code-wrap" style="margin-top:16px"><pre><code>CONVERSION SUMMARY
+  Converted : 1
+  Skipped   : 0
+  Failed    : 0</code></pre></div>
+
+  <table style="margin-top:16px">
+    <thead><tr><th>필드</th><th>뜻</th></tr></thead>
+    <tbody>
+      <tr><td><code>Status</code></td><td>Converted / Skipped / Failed</td></tr>
+      <tr><td><code>Source</code></td><td>원본 <code>.doc</code>의 절대 경로</td></tr>
+      <tr><td><code>Docx</code></td><td>Markdown 통합 변환 시 중간 <code>.docx</code></td></tr>
+      <tr><td><code>Target</code></td><td>최종 <code>.docx</code> 또는 <code>.md</code></td></tr>
+      <tr><td><code>Reason</code></td><td>건너뛴 이유</td></tr>
+      <tr><td><code>Error</code></td><td>실패 원인</td></tr>
+    </tbody>
+  </table>
+
+  <div class="grid grid-2" style="margin-top:16px">
+    <div class="callout good"><strong>종료 코드 0</strong>모두 성공/건너뜀. 입력 폴더에 <code>.doc</code>가 하나도 없어도 경고 후 0일 수 있습니다.</div>
+    <div class="callout danger"><strong>종료 코드 1</strong><code>Failed</code>가 하나라도 있는 상태입니다.</div>
+  </div>
+</section>
+
+<section class="section" id="trouble">
+  <span class="kicker">08 · Troubleshooting</span>
+  <h2>안 될 때는 이 표부터 보기</h2>
+  <p class="lead">에러 문구를 원인과 바로 연결해 놓았습니다.</p>
+
+  <table>
+    <thead><tr><th>증상 / 메시지</th><th>가능한 원인</th><th>조치</th></tr></thead>
+    <tbody>
+      <tr><td><code>Path does not exist</code></td><td>입력 경로 오류</td><td>경로를 확인하고 큰따옴표로 감싸기</td></tr>
+      <tr><td><code>Input file must have a .doc extension</code></td><td>직접 전달한 파일이 구형 DOC가 아님</td><td><code>.doc</code>만 변환기에 전달</td></tr>
+      <tr><td><code>Failed</code> + DOCX 미생성</td><td>Word가 못 열음 / 손상 / 암호 오류</td><td>Word에서 수동으로 원본 열기 + <code>Error</code> 확인</td></tr>
+      <tr><td>Word 암호창이 뜸</td><td>암호 필요 또는 자동화 조건 불일치</td><td><code>-DocumentKey</code> 또는 <code>-Password</code> 사용</td></tr>
+      <tr><td><code>Existing DOCX is older</code></td><td>중간 DOCX가 원본보다 오래됨</td><td>확인 후 <code>-Overwrite</code></td></tr>
+      <tr><td><code>Existing Markdown is older</code></td><td>Markdown이 DOC/DOCX보다 오래됨</td><td>확인 후 <code>-Overwrite</code></td></tr>
+      <tr><td><code>Local Kordoc CLI is missing</code></td><td>로컬 npm 설치 안 됨</td><td><code>npm ci --prefix .\tools\kordoc</code></td></tr>
+      <tr><td>Kordoc 버전 gate 실패</td><td>package / lockfile / 설치 버전 불일치</td><td>lockfile 기준으로 로컬 재설치</td></tr>
+      <tr><td><code>node</code>/<code>npm</code> not found</td><td>Node.js가 PATH에 없음</td><td>Node.js 설치 후 PowerShell 재시작</td></tr>
+      <tr><td><code>Word.Application</code> COM 오류</td><td>Word desktop 미설치 / COM 미등록</td><td>지원되는 Windows Word 환경에서 실행</td></tr>
+      <tr><td>BAT에 준 경로가 무시됨</td><td>정상 동작: BAT는 inbox 전용</td><td><code>.ps1 -Path</code> 직접 사용</td></tr>
+      <tr><td>결과가 없는데 종료 코드 0</td><td>입력 폴더에 DOC가 없음</td><td>입력 위치와 <code>-Recurse</code> 확인</td></tr>
+    </tbody>
+  </table>
+
+  <h3 style="margin-top:26px">실패했을 때 확인 순서</h3>
+  <div class="steps">
+    <div class="step"><div><b>저장소 루트에서 실행했는지 확인</b><p>상대경로 기반 명령은 위치가 중요합니다.</p></div></div>
+    <div class="step"><div><b>입력 경로와 확장자 확인</b><p>직접 변환 대상은 실제 Word 97–2003 <code>.doc</code>인지 봅니다.</p></div></div>
+    <div class="step"><div><b><code>$LASTEXITCODE</code> 확인</b><p>0이면 전체 성공/건너뜀, 1이면 실패 항목 존재.</p></div></div>
+    <div class="step"><div><b><code>Status / Error</code> 레코드 확인</b><p>문제 파일을 특정합니다.</p></div></div>
+    <div class="step"><div><b>Word 단계와 Kordoc 단계를 분리</b><p>먼저 DOCX가 정상 생성되는지 확인하면 원인 범위를 크게 줄일 수 있습니다.</p></div></div>
+    <div class="step"><div><b>마지막에 <code>verify.ps1</code></b><p>환경·버전·테스트까지 재점검합니다.</p></div></div>
+  </div>
+</section>
+
+<section class="section" id="hwpx">
+  <span class="kicker">09 · HWP / HWPX</span>
+  <h2>HWP/HWPX는 어떻게 다루나요?</h2>
+  <p class="lead">“읽기”와 “쓰기”를 분리하면 됩니다.</p>
+
+  <div class="grid grid-2">
+    <div class="card tool">
+      <div class="icon">R</div>
+      <h3>읽기 · 분석 · 비교</h3>
+      <p>공식 <b>Kordoc MCP</b>를 우선 사용합니다.</p>
+      <div class="code-wrap"><pre><code>이 파일의 표와 문단 구조를 공식 Kordoc MCP로 추출하고,
+원본 순서를 유지한 Markdown 요약을 만들어줘.</code></pre></div>
+      <div class="code-wrap"><pre><code>두 HWPX 파일을 공식 Kordoc MCP로 비교해서
+추가·삭제·변경된 표와 문단을 구분해줘.</code></pre></div>
+    </div>
+    <div class="card tool teal">
+      <div class="icon">W</div>
+      <h3>생성 · 편집</h3>
+      <p>공식 <b><code>hwpx</code> skill</b>을 명시합니다.</p>
+      <div class="code-wrap"><pre><code>hwpx skill을 사용해서 이 초안을 편집 가능한 공문 HWPX로 만들고,
+결과를 D:\Code\Projects\HWPX_wiz\output에 저장한 뒤
+namespace와 layout 검증까지 수행해줘.</code></pre></div>
+    </div>
+  </div>
+
+  <div class="callout warn" style="margin-top:16px">
+    <strong>최종 HWPX는 사람이 한 번 눈으로 봐야 합니다.</strong>
+    한컴오피스에서 직접 열어 페이지 나눔, 표, 글꼴, 이미지, 빈 페이지를 확인하는 것이 운영 원칙입니다.
+  </div>
+
+  <h3 style="margin-top:26px">파일 저장 원칙</h3>
+  <div class="checks">
+    <div class="check"><span>✓</span><span>원본 HWP/HWPX/DOCX/PDF/XLSX는 덮어쓰지 않기</span></div>
+    <div class="check"><span>✓</span><span>별도 생성물은 필요하면 <code>output</code>에 저장</span></div>
+    <div class="check"><span>✓</span><span>임시 입력은 <code>inbox</code> 사용 가능</span></div>
+    <div class="check"><span>✓</span><span>실제 업무 문서와 결과 파일은 Git에 추가하지 않기</span></div>
+    <div class="check"><span>✓</span><span>개인정보·비밀정보를 테스트 fixture로 복사하지 않기</span></div>
+  </div>
+</section>
+
+<section class="section" id="verify">
+  <span class="kicker">10 · Verification</span>
+  <h2>“제대로 설치됐나?” 확인하는 표준 명령</h2>
+  <p class="lead">개발·정비 후에는 전체 검증, 평소에는 필요에 따라 사전조건만 검사하면 됩니다.</p>
+
+  <div class="grid grid-2">
+    <div class="card">
+      <h3>전체 검증</h3>
+      <div class="code-wrap"><button class="copy">복사</button><pre><code>powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File ".\tools\verify.ps1"</code></pre></div>
+      <p>마지막에 <code>Repository verification passed.</code>가 나오면 통과입니다.</p>
+    </div>
+    <div class="card">
+      <h3>사전조건만 빠르게</h3>
+      <div class="code-wrap"><button class="copy">복사</button><pre><code>powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File ".\tools\verify.ps1" `
+  -PrerequisiteCheckOnly</code></pre></div>
+      <p>정상이면 <code>Prerequisite check passed.</code>가 나옵니다.</p>
+    </div>
+  </div>
+
+  <h3 style="margin-top:26px">전체 검증에서 보는 것</h3>
+  <div class="grid grid-3">
+    <div class="card"><h3>환경</h3><p>Pester, PSScriptAnalyzer, uv, Node.js/npm, Word COM</p></div>
+    <div class="card"><h3>Kordoc</h3><p>package, lockfile, CLI 존재 및 버전 4.9.0, npm dry-run</p></div>
+    <div class="card"><h3>코드 품질</h3><p>Pester 전체 테스트, ScriptAnalyzer, <code>uv lock --check</code></p></div>
+  </div>
+
+  <div class="callout danger" style="margin-top:16px">
+    <strong>검증기는 설치 프로그램이 아닙니다.</strong>
+    누락된 도구를 자동 설치하지 않습니다. 실패 메시지를 보고 필요한 준비를 한 뒤 다시 실행합니다.
+  </div>
+</section>
+
+<section class="section" id="herdr">
+  <span class="kicker">11 · Optional Workflow</span>
+  <h2>Herdr + OMO는 언제 필요한가?</h2>
+  <p class="lead">문서 변환만 할 때는 필요 없습니다. 저장소 자체를 수정·개발·검증하는 멀티에이전트 작업 흐름이 필요할 때만 사용합니다.</p>
+
+  <div class="flow">
+    <div class="node"><span class="pill">PLAN / Sol</span><b>무엇을 바꿀지 정의</b><span class="small">요구사항 + GOAL.md</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><span class="pill">BUILD / Luna</span><b>구현 + 테스트</b><span class="small">AGENTS.md + GOAL.md 기반</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><span class="pill">VERIFY / Sol</span><b>독립 검증</b><span class="small">diff · 테스트 · 요구사항 감사</span></div>
+  </div>
+
+  <div class="callout info" style="margin-top:16px">
+    <strong>핵심</strong>
+    문서 변환 자체는 Herdr/OMO 없이 PowerShell 명령만으로 완전히 실행할 수 있습니다.
+  </div>
+</section>
+
+<section class="section" id="cheat">
+  <span class="kicker">12 · Cheat Sheet</span>
+  <h2>실제로는 이것만 기억해도 됩니다</h2>
+  <p class="lead">반복 사용을 위한 최소 명령 세트입니다.</p>
+
+  <table>
+    <thead><tr><th>하고 싶은 일</th><th>명령 / 도구</th></tr></thead>
+    <tbody>
+      <tr><td>HWP/HWPX/DOCX/PDF/XLSX 읽기·비교</td><td><b>공식 Kordoc MCP</b></td></tr>
+      <tr><td>HWPX 만들기·편집</td><td><b><code>hwpx</code> skill</b></td></tr>
+      <tr><td><code>inbox</code>의 DOC를 DOCX로 일괄 변환</td><td><code>.\convert-doc-to-docx.bat</code></td></tr>
+      <tr><td><code>inbox</code>의 DOC를 DOCX+MD로 일괄 변환</td><td><code>.\convert-doc-to-md.bat</code></td></tr>
+      <tr><td>특정 파일·폴더 변환</td><td><code>.ps1 -Path "..."</code></td></tr>
+      <tr><td>하위 폴더 포함</td><td><code>-Recurse</code></td></tr>
+      <tr><td>기존 결과 갱신</td><td><code>-Overwrite</code></td></tr>
+      <tr><td>설치/저장소 전체 검증</td><td><code>.\tools\verify.ps1</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="card" style="margin-top:18px">
+    <h3>운영 전 30초 체크</h3>
+    <div class="checks">
+      <div class="check"><span>□</span><span>저장소 루트에서 실행 중인가?</span></div>
+      <div class="check"><span>□</span><span><code>uv sync --locked</code> 완료?</span></div>
+      <div class="check"><span>□</span><span><code>npm ci --prefix .\tools\kordoc</code> 완료?</span></div>
+      <div class="check"><span>□</span><span>Kordoc CLI 버전이 4.9.0인가?</span></div>
+      <div class="check"><span>□</span><span>구형 DOC 변환이라면 Word desktop이 설치되어 있는가?</span></div>
+      <div class="check"><span>□</span><span>원본 DOC를 Word에서 닫았는가?</span></div>
+      <div class="check"><span>□</span><span>기존 결과가 있다면 정말 <code>-Overwrite</code>가 필요한가?</span></div>
+      <div class="check"><span>□</span><span>변환 후 <code>Failed = 0</code>, 종료 코드 0인가?</span></div>
+      <div class="check"><span>□</span><span>결과 DOCX/MD를 직접 열어 내용이 정상인지 확인했는가?</span></div>
+    </div>
+  </div>
+
+  <div class="callout good" style="margin-top:18px">
+    <strong>가장 실용적인 사용 패턴</strong>
+    평소에는 <b>inbox + BAT</b>로 빠르게 처리하고, 특정 경로나 덮어쓰기·재귀·암호 같은 조건이 생길 때만 <b>PS1 정밀 모드</b>로 전환하면 됩니다.
+  </div>
+</section>
+
+<div class="footer">
+  <b>Source basis:</b> <code>USAGE_GUIDE.md</code>의 운영 규칙과 명령을 초보자 관점에서 재구성한 설명 자료입니다. 원문의 안전 원칙과 명령 의미를 유지하되, 이해를 돕기 위해 순서와 표현을 단순화했습니다.
+</div>
+</main>
+
+<script>
+document.querySelectorAll('.copy').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    const code=btn.parentElement.querySelector('code').innerText;
+    try{
+      await navigator.clipboard.writeText(code);
+      const old=btn.textContent; btn.textContent='복사됨';
+      setTimeout(()=>btn.textContent=old,1200);
+    }catch(e){
+      btn.textContent='선택 후 복사';
+      setTimeout(()=>btn.textContent='복사',1600);
+    }
+  });
+});
+</script>
+</body>
+</html>
