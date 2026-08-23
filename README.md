@@ -11,6 +11,9 @@
 정비 이력은 [`docs/MAINTENANCE_HANDOFF.md`](docs/MAINTENANCE_HANDOFF.md), 다음 개선 순서는 [`docs/ROADMAP.md`](docs/ROADMAP.md)를 참고합니다.
 Herdr에서 PLAN/BUILD/VERIFY OMO 세션을 운영하는 방법은 [`docs/HERDR_OMO_WORKFLOW.md`](docs/HERDR_OMO_WORKFLOW.md)를 따릅니다.
 
+> **처음 사용하는 분이라면:** [HWPX_wiz 실전 HTML 가이드 바로 보기](https://hanriverflow.github.io/HWPX_wiz/)
+> · [HTML 원본 파일](HWPX_wiz_easy_guide.html)
+
 ## 역할 분담
 
 | 작업 | 사용할 도구 |
