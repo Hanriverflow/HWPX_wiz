@@ -3,7 +3,7 @@ BeforeAll {
     $script:RepoRoot = Split-Path -Parent $PSScriptRoot
     $script:DocxConverter = Join-Path $script:RepoRoot "tools/doc-to-docx/convert-doc-to-docx.ps1"
     $script:MarkdownConverter = Join-Path $script:RepoRoot "tools/doc-to-docx/convert-doc-to-md.ps1"
-    $script:LocalKordoc = Join-Path $script:RepoRoot "tools/kordoc/node_modules/.bin/kordoc.cmd"
+    $script:LocalKordoc = Join-Path $script:RepoRoot "tools/kordoc/node_modules/kordoc/dist/cli.js"
     $script:FixtureRoot = Join-Path $PSScriptRoot "fixtures/doc"
     $script:ExpectedFixtureHashes = @{
         "special-name.doc.base64" = "2a7c5606fb6f7aeed9b88e6a72f162665bc7c5849ba0d475b5b9479a0dabbedf"
@@ -31,7 +31,7 @@ BeforeAll {
     }
 }
 
-Describe "Real DOC integration boundaries" {
+Describe "Real DOC integration boundaries" -Tag "Office" {
     It "converts a special-name DOC through Word and local Kordoc" {
         $koreanLabel = [string]::Concat([char]0xBCF4, [char]0xACE0, [char]0xC11C)
         $inputDirectory = Join-Path $TestDrive "$koreanLabel & final"
@@ -108,6 +108,35 @@ Describe "Real DOC integration boundaries" {
         $text | Should -Match "Failed"
         (Get-Sha256 -Path $sourcePath) | Should -BeExactly $sourceHash
         (Test-Path -LiteralPath ([System.IO.Path]::ChangeExtension($sourcePath, ".docx"))) |
+            Should -BeFalse
+    }
+
+    It "uses the environment password without exposing it" {
+        $sourcePath = Join-Path $TestDrive "password-environment.doc"
+        Restore-DocFixture -Base64Name "password-protected.doc.base64" -Destination $sourcePath
+        $sourceHash = Get-Sha256 -Path $sourcePath
+        $secret = "environment-secret-$([guid]::NewGuid().ToString('N'))"
+        $originalEnvironmentPassword = $env:HWPX_WIZ_DOC_PASSWORD
+
+        try {
+            $env:HWPX_WIZ_DOC_PASSWORD = $secret
+            $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass `
+                -File $script:MarkdownConverter -Path $sourcePath -OutputFormat Json 2>&1
+            $exitCode = $LASTEXITCODE
+            $text = $output -join [Environment]::NewLine
+        }
+        finally {
+            $env:HWPX_WIZ_DOC_PASSWORD = $originalEnvironmentPassword
+        }
+
+        $exitCode | Should -Not -Be 0
+        $text | Should -Not -Match ([regex]::Escape($secret))
+        $records = @($text | ConvertFrom-Json)
+        $records[0].Status | Should -BeExactly "Failed"
+        (Get-Sha256 -Path $sourcePath) | Should -BeExactly $sourceHash
+        (Test-Path -LiteralPath ([System.IO.Path]::ChangeExtension($sourcePath, ".docx"))) |
+            Should -BeFalse
+        (Test-Path -LiteralPath ([System.IO.Path]::ChangeExtension($sourcePath, ".md"))) |
             Should -BeFalse
     }
 

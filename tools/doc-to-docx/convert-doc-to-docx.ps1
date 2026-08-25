@@ -19,9 +19,15 @@
 .PARAMETER LogPath
     Optional. Path to a log file. If specified, all activity is appended to this file.
 
+.PARAMETER OutputFormat
+    Output records as the default human-readable table or as one compressed JSON array.
+
+.PARAMETER TimeoutSeconds
+    Maximum time for one document's Word conversion. Defaults to 300 seconds.
+
 .PARAMETER Password
-    Optional deterministic document password. Supplying a wrong password must
-    fail without allowing Word to display an interactive password prompt.
+    Alias for DocumentKey. Accepts a String or SecureString. When omitted,
+    HWPX_WIZ_DOC_PASSWORD is used if present.
 
 .EXAMPLE
     .\Convert-DocToDocx.ps1 -Path "C:\Reports" -Recurse -Overwrite
@@ -47,15 +53,27 @@ param(
     [Parameter(Mandatory = $false)]
     [string]$LogPath,
 
+    [ValidateSet("Table", "Json")]
+    [string]$OutputFormat = "Table",
+
+    [ValidateRange(1, 86400)]
+    [int]$TimeoutSeconds = 300,
+
     [Parameter(Mandatory = $false)]
     [Alias("Password")]
-    [string]$DocumentKey
+    [ValidateScript({
+        if ($_ -is [string] -or $_ -is [System.Security.SecureString]) {
+            return $true
+        }
+        throw "DocumentKey must be a String or SecureString."
+    })]
+    [object]$DocumentKey
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $isDotSourced = $MyInvocation.InvocationName -eq "."
-$script:ConversionLogPath = $LogPath
+$script:ConversionLogPath = $null
 
 #region Logging
 
@@ -71,14 +89,47 @@ function Write-Log {
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $entry     = "[$timestamp] [$Level] $Message"
 
-    switch ($Level) {
-        "ERROR" { Write-Information $entry -InformationAction Continue }
-        "WARN"  { Write-Information $entry -InformationAction Continue }
-        default { Write-Information $entry -InformationAction Continue }
+    if ($OutputFormat -eq "Table") {
+        switch ($Level) {
+            "ERROR" { Write-Information $entry -InformationAction Continue }
+            "WARN"  { Write-Information $entry -InformationAction Continue }
+            default { Write-Information $entry -InformationAction Continue }
+        }
     }
 
     if ($script:ConversionLogPath) {
-        $entry | Out-File -FilePath $script:ConversionLogPath -Append -Encoding UTF8
+        Add-Content -LiteralPath $script:ConversionLogPath -Value $entry -Encoding UTF8
+    }
+}
+
+function Resolve-DocumentKey {
+    param(
+        [Parameter()]
+        [object]$Value
+    )
+
+    if ($null -eq $Value) {
+        $Value = $env:HWPX_WIZ_DOC_PASSWORD
+    }
+    if ($null -eq $Value -or ($Value -is [string] -and [string]::IsNullOrEmpty($Value))) {
+        return $null
+    }
+    if ($Value -is [string]) {
+        return $Value
+    }
+    if ($Value -isnot [System.Security.SecureString]) {
+        throw "DocumentKey must be a String or SecureString."
+    }
+
+    $passwordPointer = [IntPtr]::Zero
+    try {
+        $passwordPointer = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($Value)
+        return [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordPointer)
+    }
+    finally {
+        if ($passwordPointer -ne [IntPtr]::Zero) {
+            [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordPointer)
+        }
     }
 }
 
@@ -153,6 +204,70 @@ if (-not ([System.Management.Automation.PSTypeName]"Win32Api.User32").Type) {
 "@
 }
 
+if (-not ([System.Management.Automation.PSTypeName]"HwpxWiz.ProcessTimeoutGuard").Type) {
+    Add-Type -TypeDefinition @"
+using System;
+using System.Diagnostics;
+using System.Threading;
+
+namespace HwpxWiz
+{
+    public sealed class ProcessTimeoutGuard : IDisposable
+    {
+        private Timer timer;
+        private Process process;
+        private int lifecycle;
+        private int disposeStarted;
+        private int timedOut;
+
+        public bool TimedOut
+        {
+            get { return Volatile.Read(ref timedOut) == 1; }
+        }
+
+        public void Arm(Process ownedProcess, int timeoutMilliseconds)
+        {
+            process = ownedProcess;
+            timer = new Timer(OnTimeout, null, timeoutMilliseconds, Timeout.Infinite);
+        }
+
+        private void OnTimeout(object state)
+        {
+            if (Interlocked.CompareExchange(ref lifecycle, 2, 0) != 0) { return; }
+            Interlocked.Exchange(ref timedOut, 1);
+
+            try
+            {
+                if (process != null && !process.HasExited)
+                {
+                    process.Kill();
+                }
+            }
+            catch
+            {
+                // The main PowerShell runspace reports any resulting COM failure.
+            }
+        }
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref disposeStarted, 1) == 1) { return; }
+            Interlocked.CompareExchange(ref lifecycle, 1, 0);
+            if (timer == null) { return; }
+
+            using (var completed = new ManualResetEvent(false))
+            {
+                if (timer.Dispose(completed))
+                {
+                    completed.WaitOne();
+                }
+            }
+        }
+    }
+}
+"@
+}
+
 function Get-WordProcess {
     param([System.__ComObject]$WordApp)
 
@@ -212,6 +327,26 @@ function Stop-OwnedWordProcess {
 $docFiles = @(Get-DocFile -InputPath $Path -IncludeChildren:$Recurse)
 
 if ($LogPath) {
+    if ([System.Management.Automation.WildcardPattern]::ContainsWildcardCharacters($LogPath)) {
+        $record = [pscustomobject]@{
+            Status = "Failed"
+            Source = $Path
+            Target = $null
+            Reason = "LogPath must be literal"
+            Error = "LogPath must not contain wildcard characters: $LogPath"
+        }
+        if ($isDotSourced) {
+            return @($record)
+        }
+        if ($OutputFormat -eq "Json") {
+            ConvertTo-Json -InputObject @($record) -Compress
+        }
+        else {
+            $record
+        }
+        exit 1
+    }
+
     $logParent = Split-Path -Parent ([System.IO.Path]::GetFullPath($LogPath))
     if ([string]::IsNullOrWhiteSpace($logParent)) {
         $logParent = (Get-Location).Path
@@ -224,11 +359,18 @@ if ($LogPath) {
             Reason = "LogPath parent does not exist"
             Error = "LogPath parent does not exist: $logParent"
         }
-        Write-Information $record.Error -InformationAction Continue
+        if ($OutputFormat -eq "Table") {
+            Write-Information $record.Error -InformationAction Continue
+        }
         if ($isDotSourced) {
             return @($record)
         }
-        $record
+        if ($OutputFormat -eq "Json") {
+            ConvertTo-Json -InputObject @($record) -Compress
+        }
+        else {
+            $record
+        }
         exit 1
     }
 
@@ -253,13 +395,22 @@ if ($LogPath) {
             Reason = "LogPath conflicts with a source or output"
             Error = "LogPath must not overwrite a source or output: $fullLogPath"
         }
-        Write-Information $record.Error -InformationAction Continue
+        if ($OutputFormat -eq "Table") {
+            Write-Information $record.Error -InformationAction Continue
+        }
         if ($isDotSourced) {
             return @($record)
         }
-        $record
+        if ($OutputFormat -eq "Json") {
+            ConvertTo-Json -InputObject @($record) -Compress
+        }
+        else {
+            $record
+        }
         exit 1
     }
+
+    $script:ConversionLogPath = $fullLogPath
 }
 
 Write-Log "Script started. Path=$Path | Recurse=$Recurse | Overwrite=$Overwrite"
@@ -268,6 +419,9 @@ if ($docFiles.Count -eq 0) {
     Write-Log "No .doc files found under '$Path'." -Level WARN
     if ($isDotSourced) {
         return @()
+    }
+    if ($OutputFormat -eq "Json") {
+        ConvertTo-Json -InputObject @() -Compress
     }
     exit 0
 }
@@ -289,6 +443,7 @@ $originalDisplayAlerts = $null
 $originalAutomationSecurity = $null
 $originalUpdateLinks = $null
 $settingsCaptured = $false
+$resolvedDocumentKey = Resolve-DocumentKey -Value $DocumentKey
 $wdFormatXMLDocument = 12   # .docx (Open XML); wdFormatXMLDocument enum value
 
 try {
@@ -320,6 +475,7 @@ try {
 
     $totalFiles  = $docFiles.Count
     $currentFile = 0
+    $stopAfterTimeout = $false
 
     foreach ($file in $docFiles) {
         $currentFile++
@@ -347,12 +503,29 @@ try {
         # Convert
         $document = $null
         $backupPath = $null
+        $timeoutGuard = $null
+        $timeoutGuardDisposed = $false
+        $timeoutUnavailable = $false
         [string]$stagedPath = Join-Path $file.DirectoryName (
             ".{0}.{1}.docx" -f $file.BaseName, [Guid]::NewGuid().ToString("N")
         )
 
         try {
-            $passwordDocument = if ($DocumentKey) { $DocumentKey } else { [Type]::Missing }
+            if ($wordProvenance -eq "Owned" -and $null -eq $wordProcess) {
+                $timeoutUnavailable = $true
+                throw "Owned Word process could not be resolved for timeout enforcement."
+            }
+            if ($wordProvenance -eq "Owned" -and $null -ne $wordProcess) {
+                $timeoutGuard = [HwpxWiz.ProcessTimeoutGuard]::new()
+                $timeoutGuard.Arm($wordProcess, $TimeoutSeconds * 1000)
+            }
+
+            $passwordDocument = if ($resolvedDocumentKey) {
+                $resolvedDocumentKey
+            }
+            else {
+                [Type]::Missing
+            }
             # Open: ConfirmConversions=$false, ReadOnly=$true, AddToRecentFiles=$false
             $document = $word.Documents.Open(
                 $sourcePath,        # FileName
@@ -367,6 +540,14 @@ try {
             $document.SaveAs2([ref]$stagedPath, [ref]$wdFormatXMLDocument)
             Close-WordDocument -Document $document
             $document = $null
+
+            if ($null -ne $timeoutGuard) {
+                $timeoutGuard.Dispose()
+                $timeoutGuardDisposed = $true
+                if ($timeoutGuard.TimedOut) {
+                    throw "Document conversion exceeded TimeoutSeconds=$TimeoutSeconds."
+                }
+            }
 
             if (-not (Test-Path -LiteralPath $stagedPath)) {
                 throw "Word did not create staged DOCX output: $stagedPath"
@@ -400,16 +581,37 @@ try {
             Write-Log "Converted: $sourcePath -> $targetPath"
         }
         catch {
+            if ($null -ne $timeoutGuard -and -not $timeoutGuardDisposed) {
+                $timeoutGuard.Dispose()
+                $timeoutGuardDisposed = $true
+            }
+            $timedOut = $null -ne $timeoutGuard -and $timeoutGuard.TimedOut
             $failed.Add([pscustomobject]@{
                 Status = "Failed"
                 Source = $sourcePath
                 Target = $targetPath
-                Reason = $null
+                Reason = if ($timedOut) {
+                    "Timeout"
+                }
+                elseif ($timeoutUnavailable) {
+                    "TimeoutUnavailable"
+                }
+                else {
+                    $null
+                }
                 Error  = $_.Exception.Message
             })
             Write-Log "FAILED: $sourcePath - $($_.Exception.Message)" -Level ERROR
+            if ($timedOut) {
+                $stopAfterTimeout = $true
+                Write-Log "Aborting remaining files after document timeout." -Level WARN
+            }
         }
         finally {
+            if ($null -ne $timeoutGuard -and -not $timeoutGuardDisposed) {
+                $timeoutGuard.Dispose()
+                $timeoutGuardDisposed = $true
+            }
             Close-WordDocument -Document $document
             if ($stagedPath -and (Test-Path -LiteralPath $stagedPath)) {
                 try {
@@ -427,6 +629,22 @@ try {
                     Write-Log "Could not remove DOCX backup '$backupPath' - $($_.Exception.Message)" -Level WARN
                 }
             }
+        }
+
+        if ($stopAfterTimeout) {
+            if ($currentFile -lt $totalFiles) {
+                for ($remainingIndex = $currentFile; $remainingIndex -lt $totalFiles; $remainingIndex++) {
+                    $remainingFile = $docFiles[$remainingIndex]
+                    $failed.Add([pscustomobject]@{
+                        Status = "Failed"
+                        Source = $remainingFile.FullName
+                        Target = [System.IO.Path]::ChangeExtension($remainingFile.FullName, ".docx")
+                        Reason = "AbortedAfterTimeout"
+                        Error = "Conversion was not attempted after an earlier document timeout."
+                    })
+                }
+            }
+            break
         }
     }
 
@@ -484,35 +702,38 @@ finally {
 
     [GC]::Collect()
     [GC]::WaitForPendingFinalizers()
+    $resolvedDocumentKey = $null
 }
 
 #endregion
 
 #region Summary Report
 
-Write-Information "" -InformationAction Continue
-Write-Information "===========================================" -InformationAction Continue
-Write-Information "  CONVERSION SUMMARY" -InformationAction Continue
-Write-Information "===========================================" -InformationAction Continue
-Write-Information "" -InformationAction Continue
-Write-Information "  Converted : $($converted.Count)" -InformationAction Continue
-Write-Information "  Skipped   : $($skipped.Count)" -InformationAction Continue
-Write-Information "  Failed    : $($failed.Count)" -InformationAction Continue
-Write-Information "" -InformationAction Continue
+if ($OutputFormat -eq "Table") {
+    Write-Information "" -InformationAction Continue
+    Write-Information "===========================================" -InformationAction Continue
+    Write-Information "  CONVERSION SUMMARY" -InformationAction Continue
+    Write-Information "===========================================" -InformationAction Continue
+    Write-Information "" -InformationAction Continue
+    Write-Information "  Converted : $($converted.Count)" -InformationAction Continue
+    Write-Information "  Skipped   : $($skipped.Count)" -InformationAction Continue
+    Write-Information "  Failed    : $($failed.Count)" -InformationAction Continue
+    Write-Information "" -InformationAction Continue
 
-if ($converted.Count -gt 0) {
-    Write-Information "-- Converted --" -InformationAction Continue
-    $converted | Format-Table Source, Target -AutoSize | Out-Host
-}
+    if ($converted.Count -gt 0) {
+        Write-Information "-- Converted --" -InformationAction Continue
+        $converted | Format-Table Source, Target -AutoSize | Out-Host
+    }
 
-if ($skipped.Count -gt 0) {
-    Write-Information "-- Skipped --" -InformationAction Continue
-    $skipped | Format-Table Source, Target, Reason -AutoSize | Out-Host
-}
+    if ($skipped.Count -gt 0) {
+        Write-Information "-- Skipped --" -InformationAction Continue
+        $skipped | Format-Table Source, Target, Reason -AutoSize | Out-Host
+    }
 
-if ($failed.Count -gt 0) {
-    Write-Information "-- Failed --" -InformationAction Continue
-    $failed | Format-Table Source, Error -AutoSize | Out-Host
+    if ($failed.Count -gt 0) {
+        Write-Information "-- Failed --" -InformationAction Continue
+        $failed | Format-Table Source, Error -AutoSize | Out-Host
+    }
 }
 
 #endregion
@@ -529,7 +750,12 @@ if ($isDotSourced) {
     return $records
 }
 
-$records
+if ($OutputFormat -eq "Json") {
+    ConvertTo-Json -InputObject $records -Compress
+}
+else {
+    $records
+}
 if ($failed.Count -gt 0) {
     exit 1
 }

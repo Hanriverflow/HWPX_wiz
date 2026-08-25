@@ -38,7 +38,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\tools\doc-to-docx\con
 
 ## 세부 옵션
 
-PowerShell에서 직접 실행하면 덮어쓰기, 재귀 처리, 로그 파일을 선택할 수 있습니다.
+PowerShell에서 직접 실행하면 덮어쓰기, 재귀 처리, 로그 파일과 출력 형식을 선택할 수 있습니다.
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\tools\doc-to-docx\convert-doc-to-docx.ps1" `
@@ -47,7 +47,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\tools\doc-to-docx\con
 
 - `-Recurse`: 하위 폴더 포함
 - `-Overwrite`: 기존 `.docx` 덮어쓰기
-- `-LogPath`: 처리 로그 저장
+- `-LogPath`: 처리 로그 저장. 두 변환기 모두 와일드카드와 `.doc`/`.docx`
+  충돌을 거부하며, Markdown 통합 변환기는 `.md` 충돌도 거부
+- `-OutputFormat Json`: 에이전트용 한 줄 JSON 레코드 배열 출력
+- `-TimeoutSeconds`: 문서 한 건의 Word 변환 제한 시간. 기본 300초
+- `-DocumentKey`: `String` 또는 `SecureString` 암호. 미지정 시 `HWPX_WIZ_DOC_PASSWORD` 사용
 
 변환 중 Word 알림, 문서 매크로, 자동 링크 업데이트는 비활성화됩니다. 암호가 걸렸거나 손상된 문서는 실패 목록에 기록될 수 있습니다.
 

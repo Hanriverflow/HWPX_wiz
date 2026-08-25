@@ -6,6 +6,34 @@
     Uses Microsoft Word for .doc to .docx conversion, then official Kordoc for
     .docx to Markdown conversion. Outputs stay beside each source document.
     Existing outputs are preserved unless -Overwrite is supplied.
+
+.PARAMETER Path
+    Path to a .doc file or a directory containing .doc files.
+
+.PARAMETER Recurse
+    When Path is a directory, include all subdirectories.
+
+.PARAMETER Overwrite
+    Replace existing DOCX and Markdown outputs only after staged conversion succeeds.
+
+.PARAMETER OutputFormat
+    Output records as the default human-readable table or as one compressed JSON array.
+
+.PARAMETER TimeoutSeconds
+    Maximum time for one document's Word conversion. Defaults to 300 seconds.
+
+.PARAMETER LogPath
+    Optional. Path to a log file shared by the DOCX and Markdown conversion stages.
+
+.PARAMETER DocumentKey
+    Optional String or SecureString document password. When omitted,
+    HWPX_WIZ_DOC_PASSWORD is inherited by the DOC conversion stage.
+
+.PARAMETER KordocCliPath
+    Optional. Path to an alternate Kordoc cli.js entrypoint.
+
+.EXAMPLE
+    .\convert-doc-to-md.ps1 -Path "C:\Reports\Q1.doc" -OutputFormat Json
 #>
 
 [CmdletBinding()]
@@ -22,6 +50,25 @@ param(
     [switch]$Recurse,
     [switch]$Overwrite,
 
+    [ValidateSet("Table", "Json")]
+    [string]$OutputFormat = "Table",
+
+    [ValidateRange(1, 86400)]
+    [int]$TimeoutSeconds = 300,
+
+    [Parameter()]
+    [string]$LogPath,
+
+    [Parameter()]
+    [Alias("Password")]
+    [ValidateScript({
+        if ($_ -is [string] -or $_ -is [System.Security.SecureString]) {
+            return $true
+        }
+        throw "DocumentKey must be a String or SecureString."
+    })]
+    [object]$DocumentKey,
+
     [Parameter()]
     [string]$KordocCliPath
 )
@@ -29,6 +76,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $isDotSourced = $MyInvocation.InvocationName -eq "."
+$script:ConversionLogPath = $null
 
 function Get-LegacyDocFile {
     param(
@@ -71,10 +119,47 @@ function Write-Status {
     )
 
     $entry = "[{0}] [{1}] {2}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Level, $Message
-    switch ($Level) {
-        "ERROR" { Write-Information $entry -InformationAction Continue }
-        "WARN"  { Write-Information $entry -InformationAction Continue }
-        default { Write-Information $entry -InformationAction Continue }
+    if ($OutputFormat -eq "Table") {
+        switch ($Level) {
+            "ERROR" { Write-Information $entry -InformationAction Continue }
+            "WARN"  { Write-Information $entry -InformationAction Continue }
+            default { Write-Information $entry -InformationAction Continue }
+        }
+    }
+
+    if ($script:ConversionLogPath) {
+        Add-Content -LiteralPath $script:ConversionLogPath -Value $entry -Encoding UTF8
+    }
+}
+
+function Resolve-DocumentKey {
+    param(
+        [Parameter()]
+        [object]$Value
+    )
+
+    if ($null -eq $Value) {
+        $Value = $env:HWPX_WIZ_DOC_PASSWORD
+    }
+    if ($null -eq $Value -or ($Value -is [string] -and [string]::IsNullOrEmpty($Value))) {
+        return $null
+    }
+    if ($Value -is [string]) {
+        return $Value
+    }
+    if ($Value -isnot [System.Security.SecureString]) {
+        throw "DocumentKey must be a String or SecureString."
+    }
+
+    $passwordPointer = [IntPtr]::Zero
+    try {
+        $passwordPointer = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($Value)
+        return [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordPointer)
+    }
+    finally {
+        if ($passwordPointer -ne [IntPtr]::Zero) {
+            [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordPointer)
+        }
     }
 }
 
@@ -85,10 +170,98 @@ if (-not (Test-Path -LiteralPath $docConverter)) {
 
 $docFiles = @(Get-LegacyDocFile -InputPath $Path -IncludeChildren:$Recurse)
 
+if ($LogPath) {
+    if ([System.Management.Automation.WildcardPattern]::ContainsWildcardCharacters($LogPath)) {
+        $record = [pscustomobject]@{
+            Status = "Failed"
+            Source = $Path
+            Target = $null
+            Reason = "LogPath must be literal"
+            Error = "LogPath must not contain wildcard characters: $LogPath"
+            Docx = $null
+        }
+        if ($isDotSourced) {
+            return @($record)
+        }
+        if ($OutputFormat -eq "Json") {
+            ConvertTo-Json -InputObject @($record) -Compress
+        }
+        else {
+            $record
+        }
+        exit 1
+    }
+
+    $logParent = Split-Path -Parent ([System.IO.Path]::GetFullPath($LogPath))
+    if ([string]::IsNullOrWhiteSpace($logParent)) {
+        $logParent = (Get-Location).Path
+    }
+    if (-not (Test-Path -LiteralPath $logParent -PathType Container)) {
+        $record = [pscustomobject]@{
+            Status = "Failed"
+            Source = $Path
+            Target = $null
+            Reason = "LogPath parent does not exist"
+            Error = "LogPath parent does not exist: $logParent"
+            Docx = $null
+        }
+        if ($isDotSourced) {
+            return @($record)
+        }
+        if ($OutputFormat -eq "Json") {
+            ConvertTo-Json -InputObject @($record) -Compress
+        }
+        else {
+            $record
+        }
+        exit 1
+    }
+
+    $fullLogPath = [System.IO.Path]::GetFullPath($LogPath)
+    $logCandidates = @(
+        foreach ($docFile in $docFiles) {
+            $docFile.FullName
+            [System.IO.Path]::ChangeExtension($docFile.FullName, ".docx")
+            [System.IO.Path]::ChangeExtension($docFile.FullName, ".md")
+        }
+    )
+    $logConflicts = @(
+        $logCandidates |
+            Where-Object {
+                [System.StringComparer]::OrdinalIgnoreCase.Equals($_, $fullLogPath)
+            }
+    )
+    if ($logConflicts.Count -gt 0) {
+        $record = [pscustomobject]@{
+            Status = "Failed"
+            Source = $Path
+            Target = $fullLogPath
+            Reason = "LogPath conflicts with a source or output"
+            Error = "LogPath must not overwrite a source or output: $fullLogPath"
+            Docx = $null
+        }
+        if ($isDotSourced) {
+            return @($record)
+        }
+        if ($OutputFormat -eq "Json") {
+            ConvertTo-Json -InputObject @($record) -Compress
+        }
+        else {
+            $record
+        }
+        exit 1
+    }
+
+    $script:ConversionLogPath = $fullLogPath
+}
+
 if ($docFiles.Count -eq 0) {
     Write-Status "No .doc files found under '$Path'." -Level WARN
     if ($isDotSourced) {
         return @()
+    }
+    if ($OutputFormat -eq "Json") {
+        ConvertTo-Json -InputObject @() -Compress
     }
     exit 0
 }
@@ -104,9 +277,8 @@ function Resolve-KordocCli {
         return $resolvedOverride.Path
     }
 
-    $null = Get-Command node.exe -ErrorAction Stop
     $localCli = Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) `
-        "tools/kordoc/node_modules/.bin/kordoc.cmd"
+        "tools/kordoc/node_modules/kordoc/dist/cli.js"
     if (-not (Test-Path -LiteralPath $localCli -PathType Leaf)) {
         throw "Local Kordoc CLI is missing: $localCli. Run 'npm ci --prefix tools/kordoc'."
     }
@@ -114,6 +286,7 @@ function Resolve-KordocCli {
     return $localCli
 }
 
+$node = (Get-Command node.exe -ErrorAction Stop).Source
 $kordocCli = Resolve-KordocCli -OverridePath $KordocCliPath
 $converted = [System.Collections.Generic.List[pscustomobject]]::new()
 $skipped = [System.Collections.Generic.List[pscustomobject]]::new()
@@ -128,6 +301,7 @@ foreach ($file in $docFiles) {
     $docxRollbackPath = $null
     $createdDocxThisRun = $false
     $fileCompleted = $false
+    $failureReason = $null
 
     try {
         $hadExistingDocx = Test-Path -LiteralPath $docxPath
@@ -157,10 +331,63 @@ foreach ($file in $docFiles) {
             if ($Overwrite) {
                 $converterArgs += "-Overwrite"
             }
+            if ($LogPath) {
+                $converterArgs += @("-LogPath", $LogPath)
+            }
+            $converterArgs += @("-TimeoutSeconds", $TimeoutSeconds)
+            $converterArgs += @("-OutputFormat", "Json")
 
-            & powershell.exe @converterArgs
-            if ($LASTEXITCODE -ne 0) {
-                throw "DOC to DOCX converter exited with code $LASTEXITCODE"
+            $documentKeyWasBound = $PSBoundParameters.ContainsKey("DocumentKey")
+            $hadPreviousEnvironmentPassword = Test-Path Env:HWPX_WIZ_DOC_PASSWORD
+            $previousEnvironmentPassword = $env:HWPX_WIZ_DOC_PASSWORD
+            try {
+                if ($documentKeyWasBound) {
+                    $resolvedChildDocumentKey = Resolve-DocumentKey -Value $DocumentKey
+                    if ($resolvedChildDocumentKey) {
+                        $env:HWPX_WIZ_DOC_PASSWORD = $resolvedChildDocumentKey
+                    }
+                    else {
+                        Remove-Item Env:HWPX_WIZ_DOC_PASSWORD -ErrorAction SilentlyContinue
+                    }
+                }
+                $docConverterOutput = @(& powershell.exe @converterArgs)
+                $docConverterExitCode = $LASTEXITCODE
+            }
+            finally {
+                if ($hadPreviousEnvironmentPassword) {
+                    $env:HWPX_WIZ_DOC_PASSWORD = $previousEnvironmentPassword
+                }
+                else {
+                    Remove-Item Env:HWPX_WIZ_DOC_PASSWORD -ErrorAction SilentlyContinue
+                }
+                $resolvedChildDocumentKey = $null
+            }
+            $docConverterRecords = @()
+            if ($docConverterOutput.Count -gt 0) {
+                $docConverterJson = $docConverterOutput -join [Environment]::NewLine
+                $parsedDocConverterRecords = $docConverterJson | ConvertFrom-Json
+                $docConverterRecords = @(
+                    foreach ($parsedRecord in $parsedDocConverterRecords) {
+                        $parsedRecord
+                    }
+                )
+            }
+            if ($docConverterExitCode -ne 0) {
+                $timedOutRecords = @(
+                    $docConverterRecords |
+                        Where-Object {
+                            $null -ne $_ -and
+                            $null -ne $_.PSObject.Properties["Reason"] -and
+                            $_.Reason -eq "Timeout"
+                        }
+                )
+                if ($timedOutRecords.Count -gt 0) {
+                    $failureReason = "Timeout"
+                }
+                throw (
+                    "DOC to DOCX converter exited with code ${docConverterExitCode}: " +
+                    ($docConverterOutput -join [Environment]::NewLine)
+                )
             }
             $createdDocxThisRun = -not $hadExistingDocx
         } else {
@@ -197,9 +424,23 @@ foreach ($file in $docFiles) {
         [string]$stagedMarkdownPath = Join-Path $file.DirectoryName (
             ".{0}.{1}.md" -f $file.BaseName, [Guid]::NewGuid().ToString("N")
         )
-        & $kordocCli --silent -o $stagedMarkdownPath $docxPath
-        if ($LASTEXITCODE -ne 0) {
-            throw "Kordoc exited with code $LASTEXITCODE"
+        $hadKordocEnvironmentPassword = Test-Path Env:HWPX_WIZ_DOC_PASSWORD
+        $kordocEnvironmentPassword = $env:HWPX_WIZ_DOC_PASSWORD
+        try {
+            Remove-Item Env:HWPX_WIZ_DOC_PASSWORD -ErrorAction SilentlyContinue
+            & $node $kordocCli --silent -o $stagedMarkdownPath $docxPath
+            $kordocExitCode = $LASTEXITCODE
+        }
+        finally {
+            if ($hadKordocEnvironmentPassword) {
+                $env:HWPX_WIZ_DOC_PASSWORD = $kordocEnvironmentPassword
+            }
+            else {
+                Remove-Item Env:HWPX_WIZ_DOC_PASSWORD -ErrorAction SilentlyContinue
+            }
+        }
+        if ($kordocExitCode -ne 0) {
+            throw "Kordoc exited with code $kordocExitCode"
         }
         if (-not (Test-Path -LiteralPath $stagedMarkdownPath)) {
             throw "Kordoc did not create staged Markdown output: $stagedMarkdownPath"
@@ -239,7 +480,7 @@ foreach ($file in $docFiles) {
             Status = "Failed"
             Source = $sourcePath
             Target = $markdownPath
-            Reason = $null
+            Reason = $failureReason
             Error = $_.Exception.Message
             Docx = $docxPath
         })
@@ -300,23 +541,25 @@ foreach ($file in $docFiles) {
     }
 }
 
-Write-Information "" -InformationAction Continue
-Write-Information "===========================================" -InformationAction Continue
-Write-Information "  DOC TO MARKDOWN SUMMARY" -InformationAction Continue
-Write-Information "===========================================" -InformationAction Continue
-Write-Information "  Converted : $($converted.Count)" -InformationAction Continue
-Write-Information "  Skipped   : $($skipped.Count)" -InformationAction Continue
-Write-Information "  Failed    : $($failed.Count)" -InformationAction Continue
-Write-Information "" -InformationAction Continue
+if ($OutputFormat -eq "Table") {
+    Write-Information "" -InformationAction Continue
+    Write-Information "===========================================" -InformationAction Continue
+    Write-Information "  DOC TO MARKDOWN SUMMARY" -InformationAction Continue
+    Write-Information "===========================================" -InformationAction Continue
+    Write-Information "  Converted : $($converted.Count)" -InformationAction Continue
+    Write-Information "  Skipped   : $($skipped.Count)" -InformationAction Continue
+    Write-Information "  Failed    : $($failed.Count)" -InformationAction Continue
+    Write-Information "" -InformationAction Continue
 
-if ($converted.Count -gt 0) {
-    $converted | Format-Table Source, Docx, Target -AutoSize | Out-Host
-}
-if ($skipped.Count -gt 0) {
-    $skipped | Format-Table Source, Target, Reason -AutoSize | Out-Host
-}
-if ($failed.Count -gt 0) {
-    $failed | Format-Table Source, Error -AutoSize | Out-Host
+    if ($converted.Count -gt 0) {
+        $converted | Format-Table Source, Docx, Target -AutoSize | Out-Host
+    }
+    if ($skipped.Count -gt 0) {
+        $skipped | Format-Table Source, Target, Reason -AutoSize | Out-Host
+    }
+    if ($failed.Count -gt 0) {
+        $failed | Format-Table Source, Error -AutoSize | Out-Host
+    }
 }
 
 $records = @(
@@ -329,7 +572,12 @@ if ($isDotSourced) {
     return $records
 }
 
-$records
+if ($OutputFormat -eq "Json") {
+    ConvertTo-Json -InputObject $records -Compress
+}
+else {
+    $records
+}
 if ($failed.Count -gt 0) {
     exit 1
 }
