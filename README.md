@@ -29,6 +29,7 @@ Herdr에서 PLAN/BUILD/VERIFY OMO 세션을 운영하는 방법은 [`docs/HERDR_
 각 원본 프로젝트의 저작권, 라이선스와 원 저작자 표기는 해당 upstream
 프로젝트를 따릅니다. HWPX_wiz의 역할은 두 upstream을 Windows용 DOC 변환기,
 검증 도구와 운영 문서로 통합하여 사용성을 높이는 것입니다.
+HWPX_wiz 자체 통합 계층은 [MIT License](LICENSE)로 배포합니다.
 
 ## 역할 분담
 
@@ -36,11 +37,17 @@ Herdr에서 PLAN/BUILD/VERIFY OMO 세션을 운영하는 방법은 [`docs/HERDR_
 |---|---|
 | HWP/HWPX/DOCX/PDF/XLSX 내용 파악·비교 | Codex의 공식 Kordoc MCP |
 | 새 HWPX 작성, 기존 HWPX 편집·검증 | Codex의 `hwpx` skill + 이 프로젝트의 `uv` 환경 |
+| Kordoc `generate`/`fill`/`patch`/`validate` | upstream 보조 기능. 명시적 호환성 검토 전에는 편집 가능한 HWPX 작업의 기본 경로로 사용하지 않음 |
 | `inbox`의 구형 `.doc` 변환 | 인자를 무시하는 `convert-doc-to-docx.bat` 또는 `convert-doc-to-md.bat` |
 | 특정 파일·폴더의 구형 `.doc` 변환 | `tools/doc-to-docx/convert-doc-to-docx.ps1` 또는 `convert-doc-to-md.ps1`에 `-Path` 지정 |
 | 경로가 지정된 문서 | 원본과 같은 폴더에 결과 저장 |
 | 경로 없는 DOC 임시 작업 | `inbox`에서 찾고 결과도 해당 DOC 옆에 저장 |
 | 별도 생성 문서·보고서·로그 | 필요할 때 `output` 사용 |
+
+Kordoc CLI에 HWPX 쓰기·검증 명령이 있어도 이 프로젝트의 기본 역할은
+Kordoc=MCP 읽기·구조 추출·비교·일반 Markdown 변환, hwpx skill=편집 가능한
+HWPX 생성·수정·namespace/layout/한컴 검증이다. 겹치는 Kordoc 명령은 별도
+작업에서 결과 호환성을 검증하고 명시적으로 선택할 때만 사용한다.
 
 ## 처음 한 번 또는 환경 복원
 
@@ -52,6 +59,8 @@ uv sync --locked
 ```
 
 현재 환경은 Python 3.12, `python-hwpx`, `lxml`, `pywin32`를 잠금 파일 기준으로 설치합니다.
+hwpx skill의 Python 스크립트도 저장소 루트에서 `uv run python`으로 실행해
+이 잠금 환경의 `hwpx`, `lxml`, `win32com`을 사용합니다.
 
 공식 Kordoc MCP 등록 상태는 다음처럼 확인합니다.
 
@@ -59,8 +68,8 @@ uv sync --locked
 codex mcp list
 ```
 
-`kordoc` 항목의 명령은 검증된 버전을 고정한
-`npx.cmd -y kordoc@4.9.1 mcp`입니다. 새 Codex 작업에서
+`kordoc` 항목은 이 저장소 lock과 같은 CLI를 사용하도록
+`node.exe <clone 경로>\tools\kordoc\node_modules\kordoc\dist\cli.js mcp`로 등록합니다. 새 Codex 작업에서
 Kordoc 도구를 사용하면 됩니다.
 
 공식 `hwpx` skill이 없다면 다음 위치에 설치합니다.
@@ -95,6 +104,9 @@ Install-Module Pester -MinimumVersion 6.1.0 -Scope CurrentUser
 Install-Module PSScriptAnalyzer -MinimumVersion 1.25.0 -Scope CurrentUser
 
 node .\tools\kordoc\node_modules\kordoc\dist\cli.js --version
+$kordocCli = (Resolve-Path `
+  .\tools\kordoc\node_modules\kordoc\dist\cli.js).Path
+codex mcp add kordoc -- node.exe $kordocCli mcp
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -File .\tools\verify.ps1
 ```
@@ -136,25 +148,7 @@ Kordoc MCP와 `hwpx` skill의 별도 지원 조건을 먼저 확인해야 합니
 
 ## 일상 작업 흐름
 
-### 1. 일반 문서 읽기·분석
-
-문서의 현재 경로를 Codex에 알려주면 원본 위치에서 바로 작업합니다. `inbox`는 별도 경로가 없는 임시 작업용입니다.
-
-예: `inbox의 계약서.hwpx를 Kordoc으로 읽고 조항별 위험을 비교해줘.`
-
-### 2. HWPX 생성·편집
-
-Codex에 `hwpx` skill을 사용하도록 명시하고 결과를 `output`에 저장하도록 요청합니다.
-
-예: `hwpx skill로 이 초안을 편집 가능한 공문 HWPX로 만들어 output에 저장하고 검증해줘.`
-
-Python 명령이 필요하면 항상 다음 형태를 사용합니다.
-
-```powershell
-uv run python <script.py>
-```
-
-### 3. 구형 DOC를 Markdown으로 변환
+### 1. 구형 DOC를 DOCX 또는 Markdown으로 변환
 
 Codex에 `.doc` 파일 경로를 지정해 Markdown 변환을 요청하면 원본 폴더에 `.docx` 중간본과 `.md` 결과가 함께 생성됩니다.
 
@@ -189,6 +183,60 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\tools\doc-to-docx\con
 
 세부 옵션은 `tools/doc-to-docx/README.md`를 참고합니다.
 
+### 2. HWP를 편집 가능한 HWPX로 변환
+
+Windows에서는 hwpx skill의 한컴오피스 Automation 변환기를 우선 사용합니다.
+결과를 원본과 같은 폴더에 두려면 `-OutputDirectory`를 생략합니다.
+
+```powershell
+$hwpxSkill = Join-Path $HOME ".agents\skills\hwpx"
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File "$hwpxSkill\scripts\convert_hwp_hancom.ps1" `
+  -InputPath "D:\문서\보고서.hwp"
+```
+
+한컴 Automation을 사용할 수 없을 때는 같은 skill의 rhwp 기반 Python
+fallback을 이 저장소 uv 환경으로 실행합니다.
+
+```powershell
+uv run python "$hwpxSkill\scripts\convert_hwp.py" `
+  "D:\문서\보고서.hwp" `
+  -o "D:\문서\보고서.hwpx"
+```
+
+### 3. 일반 문서를 읽고 구조를 비교
+
+문서의 현재 경로를 Codex에 알려주면 공식 Kordoc MCP로 HWP/HWPX/DOCX/PDF/
+XLSX를 읽고 구조를 추출·비교합니다. `inbox`는 별도 경로가 없는 임시
+작업용입니다.
+
+예: `inbox의 계약서.hwpx를 Kordoc으로 읽고 조항별 위험을 비교해줘.`
+
+MCP가 아닌 로컬 CLI로 Markdown 파일이 필요한 경우에도 저장소 lock과 같은
+진입점을 사용합니다.
+
+```powershell
+node .\tools\kordoc\node_modules\kordoc\dist\cli.js `
+  --silent `
+  -o "D:\문서\보고서.md" `
+  "D:\문서\보고서.pdf"
+```
+
+### 4. HWPX를 생성·편집하고 검증
+
+Codex에 `hwpx` skill을 사용하도록 명시하고 결과를 `output`에 저장하도록
+요청합니다.
+
+예: `hwpx skill로 이 초안을 편집 가능한 공문 HWPX로 만들어 output에 저장하고 검증해줘.`
+
+skill의 Python 명령은 저장소 루트에서 항상 다음 형태로 실행합니다.
+
+```powershell
+uv run python "$hwpxSkill\scripts\validate.py" `
+  ".\output\결과.hwpx" `
+  --layout
+```
+
 ## 저장소 관리
 
 이 저장소에는 개인 통합 실행기, 프로젝트 규칙, 운영 문서와 잠금 파일만
@@ -204,7 +252,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\tools\doc-to-docx\con
 Kordoc은 호환성 검증을 마친 정확한 버전을 사용합니다. 버전 확인:
 
 ```powershell
-npx.cmd -y kordoc@4.9.1 --version
+node .\tools\kordoc\node_modules\kordoc\dist\cli.js --version
 ```
 
 설치된 `hwpx` skill은 먼저 로컬 변경 여부를 확인한 뒤 fast-forward로만 갱신합니다.
@@ -244,7 +292,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 # Kordoc 4.x 후보만 확인·적용
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -File .\tools\update-upstreams.ps1 `
-  -Component Kordoc -KordocVersion 4.9.1 -Apply
+  -Component Kordoc -KordocVersion 4.9.2 -Apply
 
 # hwpx-skill만 fast-forward로 적용
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
@@ -300,8 +348,11 @@ Invoke-ScriptAnalyzer -Path .\tools\doc-to-docx -Recurse
 uv lock --check
 ```
 
-이 명령은 로컬 저장소 검증 게이트입니다. 호스팅 CI를 제공하지 않으며 Word나
-한컴오피스의 설치 또는 사용 가능 상태를 해결하지 않습니다.
+GitHub Actions는 Word 없이 실행 가능한 `-Tier Static` 계층만 검증합니다.
+Word COM을 포함한 기본 `-Tier Full` 게이트는 로컬 Windows에서 실행해야 하며,
+한컴오피스의 설치 또는 사용 가능 상태를 대신 해결하지 않습니다.
+hwpx skill template의 구조·layout·한컴 smoke까지 확인하려면 로컬에서
+`.\tools\verify.ps1 -IncludeHwpx`를 사용합니다.
 
 ## 안전 메모
 

@@ -4,6 +4,7 @@
 - Python 실행은 `uv run python ...`, 환경 동기화는 `uv sync --locked`를 사용한다.
 - HWP/HWPX/DOCX/PDF/XLSX 문서의 읽기, 구조 추출, 비교와 변환은 공식 `kordoc` MCP를 우선 사용한다.
 - 편집 가능한 HWPX 생성·수정 요청에는 설치된 `hwpx` skill을 사용하고 그 검증 절차를 끝까지 따른다.
+- hwpx skill 스크립트는 저장소 루트에서 `uv run python <skill 경로>\scripts\<script>.py`로 실행하며 전역 `pip install`을 하지 않는다.
 - 구형 Word `.doc`는 Kordoc에 직접 넘기지 않는다. 루트의 `convert-doc-to-docx.bat`과 `convert-doc-to-md.bat`은 모든 인자를 무시하고 프로젝트 `inbox`만 처리한다.
 - 특정 파일이나 폴더는 `tools/doc-to-docx/convert-doc-to-docx.ps1` 또는 `tools/doc-to-docx/convert-doc-to-md.ps1`에 `-Path`로 전달한다.
 - 사용자가 입력 파일의 경로를 지정하면 `.docx`와 `.md` 결과를 원본 파일과 같은 폴더에 같은 기본 이름으로 저장한다.

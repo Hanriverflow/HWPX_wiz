@@ -4,7 +4,7 @@ BeforeAll {
     $script:PowerShellPath = (Get-Command powershell.exe -ErrorAction Stop).Source
 }
 
-Describe "Upstream update workflow" {
+Describe "Upstream update workflow" -Tag "Static" {
     It "has a read-only-by-default updater" {
         Test-Path -LiteralPath $script:UpdaterPath | Should -BeTrue
         $source = Get-Content -LiteralPath $script:UpdaterPath -Raw

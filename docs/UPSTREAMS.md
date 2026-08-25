@@ -22,14 +22,14 @@
 
 | 구성 요소 | 기준선 |
 |---|---|
-| Kordoc | `4.9.1` (`kordoc@4`가 해석한 최신 4.x) |
-| hwpx-skill | `v1.17.0` / `96a2633f23a08f707679d7e212ebdc59948260e6` |
-| Python 패키지 | `uv.lock` |
+| Kordoc | `4.9.2` (`kordoc@4`가 해석한 최신 4.x) |
+| hwpx-skill | `main@96a2633f23a08f707679d7e212ebdc59948260e6` (`v1.17.0` + 3 commits) |
+| Python 패키지 | `uv.lock` (`python-hwpx 6.3.0`; 2026-08-25 outdated 보고 없음) |
 
-현재 MCP와 DOC→Markdown 변환기는
-`npx.cmd -y kordoc@4.9.1 mcp` 및 `kordoc@4.9.1`으로 검증
-기준선을 고정합니다. 새 버전은 아래 호환성 게이트를 통과한 뒤 MCP 설정,
-변환기와 이 문서의 기준선을 함께 갱신합니다.
+현재 MCP와 DOC→Markdown 변환기는 모두
+`tools\kordoc\node_modules\kordoc\dist\cli.js`를 사용해 검증 기준선을
+고정합니다. 새 버전은 아래 호환성 게이트를 통과한 뒤 로컬 lock,
+MCP 설정과 이 문서의 기준선을 함께 갱신합니다.
 
 ## 업데이트 절차
 
@@ -58,7 +58,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 # 특정 Kordoc 후보를 명시
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -File .\tools\update-upstreams.ps1 `
-  -Component Kordoc -KordocVersion 4.9.1 -Apply
+  -Component Kordoc -KordocVersion 4.9.2 -Apply
 
 # hwpx-skill만 확인·적용
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
@@ -106,9 +106,9 @@ npm ci --prefix .\tools\kordoc
 node .\tools\kordoc\node_modules\kordoc\dist\cli.js --version
 ```
 
-변환기는 `tools\kordoc\package-lock.json`의 정확한 `kordoc@4.9.1`만
-사용합니다. MCP 등록용 `npx.cmd -y kordoc@4.9.1 mcp`와 달리, 변환 경로에는
-registry-backed `npx` 호출을 사용하지 않습니다.
+변환기와 MCP는 `tools\kordoc\package-lock.json`의 정확한 `kordoc@4.9.2`만
+사용합니다. 두 경로 모두 registry-backed `npx` 호출 없이 로컬
+`node_modules\kordoc\dist\cli.js`를 직접 실행합니다.
 
 ## 호환성 게이트
 
@@ -141,8 +141,9 @@ Invoke-ScriptAnalyzer -Path .\tests -Recurse
 uv lock --check
 ```
 
-이 로컬 게이트는 호스팅 CI를 추가하지 않으며, 위 실제 문서 확인에 필요한 Word나
-한컴오피스의 설치 및 사용 가능 상태를 대신 해결하지 않습니다.
+GitHub Actions는 Word 없이 실행 가능한 `tools\verify.ps1 -Tier Static`만
+검증합니다. 위 실제 문서 확인과 기본 `-Tier Full`에 필요한 Word나
+한컴오피스의 설치 및 사용 가능 상태는 로컬 Windows에서 확인합니다.
 
 검증 자료에는 개인정보가 없는 소형 문서만 사용합니다. 실제 업무 문서와 변환
 결과는 `inbox` 또는 `output`에 두고 Git으로 추적하지 않습니다.

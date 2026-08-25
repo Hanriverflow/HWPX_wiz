@@ -4,7 +4,7 @@ BeforeAll {
     $script:PowerShellPath = (Get-Command powershell.exe -ErrorAction Stop).Source
 }
 
-Describe "Repository verifier" {
+Describe "Repository verifier" -Tag "Static" {
     It "has a verifier entry point" {
         Test-Path -LiteralPath $script:VerifierPath | Should -BeTrue
     }
@@ -72,6 +72,17 @@ Describe "Repository verifier" {
             Should -Match "Word.Application|Office integration"
     }
 
+    It "lets the static tier run without Word COM" {
+        $output = & $script:PowerShellPath -NoProfile -ExecutionPolicy Bypass `
+            -File $script:VerifierPath -Tier Static -PrerequisiteCheckOnly `
+            -SimulateMissing Office 6>&1 2>&1
+        $exitCode = $LASTEXITCODE
+
+        $exitCode | Should -Be 0 -Because ($output -join [Environment]::NewLine)
+        ($output -join [Environment]::NewLine) |
+            Should -Match "Prerequisite check passed"
+    }
+
     It "reports missing Node or local Kordoc installation guidance" {
         $output = & $script:PowerShellPath -NoProfile -ExecutionPolicy Bypass `
             -File $script:VerifierPath -PrerequisiteCheckOnly `
@@ -83,13 +94,100 @@ Describe "Repository verifier" {
             Should -Match "npm ci --prefix \.\\tools\\kordoc"
     }
 
+    It "reports missing HWPX skill Python imports" {
+        $output = & $script:PowerShellPath -NoProfile -ExecutionPolicy Bypass `
+            -File $script:VerifierPath -PrerequisiteCheckOnly `
+            -SimulateMissing HwpxPython 6>&1 2>&1
+        $exitCode = $LASTEXITCODE
+
+        $exitCode | Should -Not -Be 0
+        ($output -join [Environment]::NewLine) |
+            Should -Match "hwpx.*lxml.*win32com"
+    }
+
     It "reads the locked Kordoc version from the npm lockfile" {
         . $script:VerifierPath -PrerequisiteCheckOnly | Out-Null
         $nodePath = (Get-Command node.exe -ErrorAction Stop).Source
         $lockPath = Join-Path $script:RepoRoot "tools\kordoc\package-lock.json"
+        $packagePath = Join-Path $script:RepoRoot "tools\kordoc\package.json"
+        $package = Get-Content -LiteralPath $packagePath -Raw | ConvertFrom-Json
 
         Get-LockedKordocVersion -LockPath $lockPath -NodePath $nodePath |
-            Should -Be ([version]"4.9.1")
+            Should -Be ([version]$package.dependencies.kordoc)
+    }
+
+    It "uses package.json as the Kordoc version source" {
+        $verifierSource = Get-Content -LiteralPath $script:VerifierPath -Raw
+
+        $verifierSource | Should -Not -Match "RequiredKordocVersion"
+        $verifierSource | Should -Match "package\.dependencies\.kordoc"
+    }
+
+    It "warns when Codex Kordoc MCP does not use the local CLI" {
+        . $script:VerifierPath -PrerequisiteCheckOnly | Out-Null
+        $configPath = Join-Path $TestDrive "config.toml"
+        $expectedCliPath = Join-Path $script:RepoRoot `
+            "tools\kordoc\node_modules\kordoc\dist\cli.js"
+        $tomlCliPath = $expectedCliPath.Replace("\", "/")
+        @"
+[mcp_servers.kordoc]
+command = "node.exe"
+args = ["$tomlCliPath", "mcp"]
+"@ | Set-Content -LiteralPath $configPath -Encoding UTF8
+
+        Get-KordocMcpConfigurationWarning `
+            -ConfigPath $configPath `
+            -ExpectedCliPath $expectedCliPath |
+            Should -BeNullOrEmpty
+
+        @'
+[mcp_servers.kordoc]
+command = "npx.cmd"
+args = ["-y", "kordoc@4.9.2", "mcp"]
+'@ | Set-Content -LiteralPath $configPath -Encoding UTF8
+
+        Get-KordocMcpConfigurationWarning `
+            -ConfigPath $configPath `
+            -ExpectedCliPath $expectedCliPath |
+            Should -Match "local Kordoc CLI"
+    }
+
+    It "skips a missing optional HWPX skill without failing" {
+        . $script:VerifierPath -PrerequisiteCheckOnly | Out-Null
+        $missingSkillRoot = Join-Path $TestDrive "missing-hwpx-skill"
+        $uvPath = (Get-Command uv -ErrorAction Stop).Source
+
+        $output = @(
+            Invoke-HwpxValidationSmoke `
+                -SkillRoot $missingSkillRoot `
+                -UvPath $uvPath 6>&1
+        )
+
+        $output[-1] | Should -Be 0
+        ($output -join [Environment]::NewLine) | Should -Match "skipped"
+    }
+
+    It "keeps a failing optional HWPX validator warning-only" {
+        . $script:VerifierPath -PrerequisiteCheckOnly | Out-Null
+        $skillRoot = Join-Path $TestDrive "failing-hwpx-skill"
+        $scriptsPath = Join-Path $skillRoot "scripts"
+        $assetsPath = Join-Path $skillRoot "assets"
+        [void](New-Item -ItemType Directory -Path $scriptsPath, $assetsPath)
+        "raise SystemExit(23)" |
+            Set-Content -LiteralPath (Join-Path $scriptsPath "validate.py") -Encoding UTF8
+        "fixture" |
+            Set-Content -LiteralPath (Join-Path $assetsPath "report-template.hwpx") -Encoding ASCII
+        $uvPath = (Get-Command uv -ErrorAction Stop).Source
+
+        $output = @(
+            Invoke-HwpxValidationSmoke `
+                -SkillRoot $skillRoot `
+                -UvPath $uvPath 3>&1 6>&1
+        )
+
+        $output[-1] | Should -Be 0
+        ($output -join [Environment]::NewLine) |
+            Should -Match "layout validation failed"
     }
 
     It "restores the caller location when dot-sourced" {

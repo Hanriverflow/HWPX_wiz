@@ -13,7 +13,7 @@
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Apple SD Gothic Neo",sans-serif;line-height:1.65}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Apple SD Gothic Neo",sans-serif;line-height:1.65;word-break:keep-all;overflow-wrap:anywhere}
 a{color:inherit}
 button{font:inherit}
 .topbar{position:sticky;top:0;z-index:20;background:rgba(246,248,251,.92);backdrop-filter:blur(14px);border-bottom:1px solid rgba(223,230,238,.9)}
@@ -26,7 +26,7 @@ button{font:inherit}
 .hero{background:linear-gradient(135deg,#071a31 0%,#0d3868 62%,#116a8b 100%);color:#fff}
 .hero-inner{max-width:1180px;margin:auto;padding:72px 22px 62px;display:grid;grid-template-columns:1.25fr .75fr;gap:36px;align-items:center}
 .eyebrow{font-size:13px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#9fd2ff}
-.hero h1{margin:6px 0 14px;font-size:clamp(34px,5vw,64px);line-height:1.05;letter-spacing:-.045em}
+.hero h1{margin:6px 0 14px;font-size:clamp(34px,4.3vw,54px);line-height:1.12;letter-spacing:-.045em}
 .hero p{font-size:18px;color:#d8e7f7;max-width:760px;margin:0}
 .hero-card{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);border-radius:22px;padding:22px;box-shadow:0 16px 36px rgba(0,0,0,.16)}
 .hero-card strong{display:block;font-size:18px;margin-bottom:10px}
@@ -104,12 +104,13 @@ code{font-family:"Cascadia Code","SFMono-Regular",Consolas,monospace}
 }
 @media(max-width:680px){
   .grid-2,.grid-3,.grid-4{grid-template-columns:1fr}
-  .hero h1{font-size:40px}
+  .hero h1{font-size:27px}
   .section h2{font-size:25px}
   .arrow{display:none}
   .flow{display:grid}
   .choice{grid-template-columns:1fr}
   .choice .a{white-space:normal}
+  td code{white-space:normal;overflow-wrap:anywhere}
   main{padding-left:15px;padding-right:15px}
   .topbar-inner{padding-left:14px;padding-right:14px}
 }
@@ -124,7 +125,7 @@ code{font-family:"Cascadia Code","SFMono-Regular",Consolas,monospace}
   .section{break-inside:avoid}
 }
 </style>
-<script type="text/javascript" nonce="4f81405811fe4764a783c88ddd3" src="//local.adguard.org?ts=1787483493977&amp;type=content-script&amp;dmn=chatgpt.com&amp;url=https%3A%2F%2Fchatgpt.com%2Fbackend-api%2Festuary%2Fcontent%3Fid%3Dfile_00000000e70481fa9347dec47f29bfc5%26fn%3DHWPX_wiz_easy_guide.html%26cd%3Dattachment%26ts%3D496523%26p%3Dfs%26cid%3D1%26sig%3De89c7619193641c14e9258056af0c38026609fcfb29a1d55dd5c6cc530cc958c%26v%3D0&amp;app=whale.exe&amp;css=2&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=1"></script><script type="text/javascript" nonce="4f81405811fe4764a783c88ddd3" src="//local.adguard.org?ts=1787483493977&amp;name=AdGuard%20Extra&amp;name=AdGuard%20Popup%20Blocker&amp;type=user-script"></script></head>
+</head>
 <body>
 <header class="topbar">
   <div class="topbar-inner">
@@ -135,12 +136,14 @@ code{font-family:"Cascadia Code","SFMono-Regular",Consolas,monospace}
       <a href="#setup">최초 설정</a>
       <a href="#quick">빠른 사용</a>
       <a href="#precision">정밀 사용</a>
+      <a href="#safety">안전 원칙</a>
       <a href="#result">결과 해석</a>
       <a href="#trouble">문제 해결</a>
       <a href="#hwpx">HWP/HWPX</a>
       <a href="#verify">검증</a>
-      <a href="#upstream">원본 프로젝트</a>
+      <a href="#herdr">Herdr/OMO</a>
       <a href="#cheat">치트시트</a>
+      <a href="#upstream">원본 프로젝트</a>
     </nav>
   </div>
 </header>
@@ -153,7 +156,7 @@ code{font-family:"Cascadia Code","SFMono-Regular",Consolas,monospace}
       <p>복잡한 한글·Word 문서 작업을 “어떤 도구를 써야 하는지”부터 “실패했을 때 어디를 볼지”까지 한 흐름으로 정리한 실전용 HTML 가이드입니다.</p>
       <div class="hero-badges">
         <span class="badge">Windows PowerShell</span>
-        <span class="badge">Kordoc 4.9.0</span>
+        <span class="badge">Kordoc 4.9.2</span>
         <span class="badge">Microsoft Word desktop</span>
         <span class="badge">Node.js / npm</span>
         <span class="badge">uv</span>
@@ -276,7 +279,7 @@ code{font-family:"Cascadia Code","SFMono-Regular",Consolas,monospace}
         <div class="code-wrap"><button class="copy">복사</button><pre><code>npm ci --prefix .\tools\kordoc
 
 node .\tools\kordoc\node_modules\kordoc\dist\cli.js --version</code></pre></div>
-        <div class="small">기준 버전은 <b>4.9.0</b>입니다.</div>
+        <div class="small">기준 버전은 <b>4.9.2</b>입니다.</div>
       </div>
     </div>
     <div class="step">
@@ -296,7 +299,7 @@ Install-Module PSScriptAnalyzer -MinimumVersion 1.25.0 -Scope CurrentUser</code>
       <div>
         <b>Kordoc MCP와 hwpx skill 확인</b>
         <div class="code-wrap"><button class="copy">복사</button><pre><code>codex mcp list</code></pre></div>
-        <div class="small">Kordoc MCP는 검증 기준인 <code>npx -y kordoc@4.9.0 mcp</code>를 사용합니다.</div>
+        <div class="small">Kordoc MCP는 저장소 lock과 같은 <code>node.exe ...\kordoc\dist\cli.js mcp</code>를 사용합니다.</div>
       </div>
     </div>
   </div>
@@ -574,7 +577,7 @@ namespace와 layout 검증까지 수행해줘.</code></pre></div>
   <h3 style="margin-top:26px">전체 검증에서 보는 것</h3>
   <div class="grid grid-3">
     <div class="card"><h3>환경</h3><p>Pester, PSScriptAnalyzer, uv, Node.js/npm, Word COM</p></div>
-    <div class="card"><h3>Kordoc</h3><p>package, lockfile, CLI 존재 및 버전 4.9.0, npm dry-run</p></div>
+    <div class="card"><h3>Kordoc</h3><p>package, lockfile, CLI 존재 및 버전 4.9.2, npm dry-run</p></div>
     <div class="card"><h3>코드 품질</h3><p>Pester 전체 테스트, ScriptAnalyzer, <code>uv lock --check</code></p></div>
   </div>
 
@@ -628,7 +631,7 @@ namespace와 layout 검증까지 수행해줘.</code></pre></div>
       <div class="check"><span>□</span><span>저장소 루트에서 실행 중인가?</span></div>
       <div class="check"><span>□</span><span><code>uv sync --locked</code> 완료?</span></div>
       <div class="check"><span>□</span><span><code>npm ci --prefix .\tools\kordoc</code> 완료?</span></div>
-      <div class="check"><span>□</span><span>Kordoc CLI 버전이 4.9.0인가?</span></div>
+      <div class="check"><span>□</span><span>Kordoc CLI 버전이 4.9.2인가?</span></div>
       <div class="check"><span>□</span><span>구형 DOC 변환이라면 Word desktop이 설치되어 있는가?</span></div>
       <div class="check"><span>□</span><span>원본 DOC를 Word에서 닫았는가?</span></div>
       <div class="check"><span>□</span><span>기존 결과가 있다면 정말 <code>-Overwrite</code>가 필요한가?</span></div>
@@ -644,7 +647,7 @@ namespace와 layout 검증까지 수행해줘.</code></pre></div>
 </section>
 
 <section class="section" id="upstream">
-  <span class="kicker">11 · Attribution</span>
+  <span class="kicker">13 · Attribution</span>
   <h2>이 프로젝트의 원본 프로젝트</h2>
   <p class="lead"><b>HWPX_wiz는 다른 개발자가 만든 두 원본 프로젝트를 fork/기반으로 활용해 Windows 문서 작업의 사용성을 높인 통합 프로젝트</b>입니다. HWPX_wiz가 원본 프로젝트의 저작자이거나 공식 배포본이라는 뜻은 아닙니다.</p>
 

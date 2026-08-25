@@ -12,6 +12,11 @@
 param(
     [switch]$PrerequisiteCheckOnly,
 
+    [ValidateSet("Full", "Static")]
+    [string]$Tier = "Full",
+
+    [switch]$IncludeHwpx,
+
     [string[]]$SimulateMissing = @()
 )
 
@@ -21,7 +26,6 @@ $ErrorActionPreference = "Stop"
 $script:VerifierRoot = Split-Path -Parent $PSScriptRoot
 $script:MinimumPester = [version]"6.1.0"
 $script:MinimumAnalyzer = [version]"1.25.0"
-$script:RequiredKordocVersion = [version]"4.9.1"
 
 function Get-InstalledModuleVersion {
     param(
@@ -42,7 +46,10 @@ function Get-InstalledModuleVersion {
 function Get-RepositoryPrerequisiteFailure {
     param(
         [Parameter()]
-        [string[]]$SimulatedMissing = @()
+        [string[]]$SimulatedMissing = @(),
+
+        [ValidateSet("Full", "Static")]
+        [string]$VerificationTier = "Full"
     )
 
     $missing = @(
@@ -90,18 +97,20 @@ function Get-RepositoryPrerequisiteFailure {
         $failures.Add("npm is required on PATH to validate the locked local Kordoc installation.")
     }
 
-    $wordComType = [type]::GetTypeFromProgID("Word.Application")
-    if ($missing -contains "Office" -or $null -eq $wordComType) {
-        $failures.Add(
-            "Office integration tier requires registered Word.Application COM automation; " +
-            "run on a supported machine with Microsoft Word installed."
-        )
+    if ($VerificationTier -eq "Full") {
+        $wordComType = [type]::GetTypeFromProgID("Word.Application")
+        if ($missing -contains "Office" -or $null -eq $wordComType) {
+            $failures.Add(
+                "Office integration tier requires registered Word.Application COM automation; " +
+                "run on a supported machine with Microsoft Word installed."
+            )
+        }
     }
 
     $kordocRoot = Join-Path $script:VerifierRoot "tools/kordoc"
     $kordocPackagePath = Join-Path $kordocRoot "package.json"
     $kordocLockPath = Join-Path $kordocRoot "package-lock.json"
-    $kordocCliPath = Join-Path $kordocRoot "node_modules/.bin/kordoc.cmd"
+    $kordocCliPath = Join-Path $kordocRoot "node_modules/kordoc/dist/cli.js"
     foreach ($requiredKordocPath in @($kordocPackagePath, $kordocLockPath, $kordocCliPath)) {
         if ($missing -contains "Kordoc" -or
             -not (Test-Path -LiteralPath $requiredKordocPath -PathType Leaf)) {
@@ -119,6 +128,26 @@ function Get-RepositoryPrerequisiteFailure {
         if ($missing -contains "Python" -or
             -not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
             $failures.Add("Locked Python environment is incomplete: missing $requiredPath. Run 'uv sync --locked'.")
+        }
+    }
+
+    if ($missing -contains "HwpxPython") {
+        $failures.Add("HWPX skill Python imports are unavailable: hwpx, lxml, win32com.")
+    }
+    elseif (
+        $null -ne $uv -and
+        (Test-Path -LiteralPath $pythonPath -PathType Leaf)
+    ) {
+        $importExitCode = Invoke-VerifyExternalCommand `
+            -FilePath $uv.Source `
+            -Arguments @(
+                "run", "--project", $script:VerifierRoot,
+                "python", "-c", "import hwpx, lxml, win32com"
+            )
+        if ($importExitCode -ne 0) {
+            $failures.Add(
+                "HWPX skill Python imports failed: hwpx, lxml, win32com."
+            )
         }
     }
 
@@ -150,6 +179,57 @@ function Invoke-VerifyExternalCommand {
     return $exitCode
 }
 
+function Invoke-HwpxValidationSmoke {
+    param(
+        [Parameter(Mandatory)]
+        [string]$SkillRoot,
+
+        [Parameter(Mandatory)]
+        [string]$UvPath
+    )
+
+    $validatorPath = Join-Path $SkillRoot "scripts\validate.py"
+    $templatePath = Join-Path $SkillRoot "assets\report-template.hwpx"
+    if (
+        -not (Test-Path -LiteralPath $validatorPath -PathType Leaf) -or
+        -not (Test-Path -LiteralPath $templatePath -PathType Leaf)
+    ) {
+        Write-Information "Optional HWPX validation skipped; hwpx skill assets were not found." `
+            -InformationAction Continue
+        return 0
+    }
+
+    $baseArguments = @(
+        "run", "--project", $script:VerifierRoot,
+        "python", $validatorPath, $templatePath
+    )
+    $layoutExitCode = Invoke-VerifyExternalCommand `
+        -FilePath $UvPath `
+        -Arguments ($baseArguments + "--layout")
+    if ($layoutExitCode -ne 0) {
+        Write-Warning "Optional HWPX layout validation failed with exit code $layoutExitCode."
+        return 0
+    }
+
+    $hancomType = [type]::GetTypeFromProgID("HWPFrame.HwpObject")
+    if ($null -eq $hancomType) {
+        Write-Information "Optional HWPX Hancom validation skipped; COM is not registered." `
+            -InformationAction Continue
+        return 0
+    }
+
+    $hancomExitCode = Invoke-VerifyExternalCommand `
+        -FilePath $UvPath `
+        -Arguments ($baseArguments + "--hancom")
+    if ($hancomExitCode -ne 0) {
+        Write-Warning "Optional HWPX Hancom validation failed with exit code $hancomExitCode."
+        return 0
+    }
+
+    Write-Information "Optional HWPX validation smoke passed." -InformationAction Continue
+    return 0
+}
+
 function Get-LockedKordocVersion {
     param(
         [Parameter(Mandatory)]
@@ -173,9 +253,49 @@ process.stdout.write(lock.packages[""].dependencies.kordoc);
     return [version](($versionOutput | Select-Object -First 1).ToString().Trim())
 }
 
+function Get-KordocMcpConfigurationWarning {
+    param(
+        [Parameter(Mandatory)]
+        [string]$ConfigPath,
+
+        [Parameter(Mandatory)]
+        [string]$ExpectedCliPath
+    )
+
+    if (-not (Test-Path -LiteralPath $ConfigPath -PathType Leaf)) {
+        return "Codex config was not found at '$ConfigPath'; register the local Kordoc CLI."
+    }
+
+    $config = [System.IO.File]::ReadAllText($ConfigPath)
+    $match = [regex]::Match(
+        $config,
+        "(?ms)^\[mcp_servers\.kordoc\]\s*(?<body>.*?)(?=^\[|\z)"
+    )
+    if (-not $match.Success) {
+        return "Codex Kordoc MCP is not registered; register the local Kordoc CLI."
+    }
+
+    $block = $match.Groups["body"].Value.Replace("\", "/").ToLowerInvariant()
+    $expected = $ExpectedCliPath.Replace("\", "/").ToLowerInvariant()
+    if (
+        $block -notmatch 'command\s*=\s*"node\.exe"' -or
+        -not $block.Contains($expected) -or
+        $block -notmatch 'args\s*=.*"mcp"'
+    ) {
+        return "Codex Kordoc MCP does not use the repository-local Kordoc CLI: $ExpectedCliPath"
+    }
+
+    return $null
+}
+
 function Invoke-RepositoryVerification {
     param(
         [switch]$PrerequisiteOnly,
+
+        [ValidateSet("Full", "Static")]
+        [string]$VerificationTier = "Full",
+
+        [switch]$IncludeHwpxSmoke,
 
         [Parameter()]
         [string[]]$SimulatedMissing = @()
@@ -184,7 +304,11 @@ function Invoke-RepositoryVerification {
     $originalLocation = (Get-Location).Path
     try {
         Set-Location -LiteralPath $script:VerifierRoot
-        $failures = @(Get-RepositoryPrerequisiteFailure -SimulatedMissing $SimulatedMissing)
+        $failures = @(
+            Get-RepositoryPrerequisiteFailure `
+                -SimulatedMissing $SimulatedMissing `
+                -VerificationTier $VerificationTier
+        )
         if ($failures.Count -gt 0) {
             foreach ($failure in $failures) {
                 Write-Information "ERROR: $failure" -InformationAction Continue
@@ -216,11 +340,10 @@ function Invoke-RepositoryVerification {
         $node = (Get-Command node.exe -ErrorAction Stop).Source
         $declaredKordoc = [version]$package.dependencies.kordoc
         $lockedKordoc = Get-LockedKordocVersion -LockPath $lockPath -NodePath $node
-        if ($declaredKordoc -ne $script:RequiredKordocVersion -or
-            $lockedKordoc -ne $script:RequiredKordocVersion) {
+        if ($lockedKordoc -ne $declaredKordoc) {
             Write-Error (
                 "Kordoc version gate failed: package.json=$declaredKordoc " +
-                "package-lock.json=$lockedKordoc required=$($script:RequiredKordocVersion)."
+                "package-lock.json=$lockedKordoc."
             )
             return 1
         }
@@ -233,19 +356,39 @@ function Invoke-RepositoryVerification {
             return 1
         }
         $kordocVersion = [version](($kordocVersionOutput | Select-Object -First 1).ToString().Trim())
-        if ($kordocVersion -ne $script:RequiredKordocVersion) {
+        if ($kordocVersion -ne $declaredKordoc) {
             Write-Error (
                 "Local Kordoc CLI version gate failed: found $kordocVersion " +
-                "required $($script:RequiredKordocVersion)."
+                "package.json declares $declaredKordoc."
             )
             return 1
         }
         Write-Information (
             "Kordoc dependency gate passed: locked $lockedKordoc, CLI $kordocVersion."
         ) -InformationAction Continue
-        Write-Information (
-            "Office integration tier: required and available (Word.Application COM registered)."
-        ) -InformationAction Continue
+        $codexConfigPath = Join-Path $HOME ".codex\config.toml"
+        $mcpWarning = Get-KordocMcpConfigurationWarning `
+            -ConfigPath $codexConfigPath `
+            -ExpectedCliPath $kordocCliPath
+        if ($mcpWarning) {
+            Write-Warning $mcpWarning
+        }
+        if ($IncludeHwpxSmoke) {
+            $uvCommand = (Get-Command uv -ErrorAction Stop).Source
+            $hwpxSkillRoot = Join-Path $HOME ".agents\skills\hwpx"
+            $null = Invoke-HwpxValidationSmoke `
+                -SkillRoot $hwpxSkillRoot `
+                -UvPath $uvCommand
+        }
+        if ($VerificationTier -eq "Full") {
+            Write-Information (
+                "Office integration tier: required and available (Word.Application COM registered)."
+            ) -InformationAction Continue
+        }
+        else {
+            Write-Information "Static verification tier: Office integration skipped." `
+                -InformationAction Continue
+        }
 
         Import-Module Pester -MinimumVersion $script:MinimumPester -Force
         Import-Module PSScriptAnalyzer -MinimumVersion $script:MinimumAnalyzer -Force
@@ -254,7 +397,15 @@ function Invoke-RepositoryVerification {
         $previousErrorAction = $ErrorActionPreference
         try {
             $ErrorActionPreference = "Continue"
-            $pesterResult = Invoke-Pester -Path (Join-Path $script:VerifierRoot "tests") -Output Detailed -PassThru
+            $pesterParameters = @{
+                Path = Join-Path $script:VerifierRoot "tests"
+                Output = "Detailed"
+                PassThru = $true
+            }
+            if ($VerificationTier -eq "Static") {
+                $pesterParameters.TagFilter = @("Static")
+            }
+            $pesterResult = Invoke-Pester @pesterParameters
         }
         finally {
             $ErrorActionPreference = $previousErrorAction
@@ -301,6 +452,8 @@ function Invoke-RepositoryVerification {
 $isDotSourced = $MyInvocation.InvocationName -eq "."
 $exitCode = Invoke-RepositoryVerification `
     -PrerequisiteOnly:$PrerequisiteCheckOnly `
+    -VerificationTier $Tier `
+    -IncludeHwpxSmoke:$IncludeHwpx `
     -SimulatedMissing $SimulateMissing
 if ($isDotSourced) {
     return $exitCode

@@ -1,0 +1,44 @@
+name: Verify static tier
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: tools/kordoc/package-lock.json
+
+      - name: Restore locked environments
+        shell: powershell
+        run: |
+          uv sync --locked
+          npm ci --prefix tools/kordoc
+
+      - name: Install PowerShell verification modules
+        shell: powershell
+        run: |
+          Install-Module Pester -MinimumVersion 6.1.0 -Scope CurrentUser -Force
+          Install-Module PSScriptAnalyzer -MinimumVersion 1.25.0 -Scope CurrentUser -Force
+
+      - name: Run static verification
+        shell: powershell
+        run: .\tools\verify.ps1 -Tier Static

@@ -9,7 +9,7 @@
 구형 Word `.doc`를 `.docx`로 바꾸는 보조 변환기를 함께 제공한다.
 
 > 기준 경로 예시: `D:\Code\Projects\HWPX_wiz`
-> 기준 Kordoc 버전: `4.9.1`
+> 기준 Kordoc 버전: `4.9.2`
 > 대상 환경: Windows PowerShell, Microsoft Word desktop, Node.js/npm, `uv`
 
 ---
@@ -119,10 +119,10 @@ npm ci --prefix .\tools\kordoc
 node .\tools\kordoc\node_modules\kordoc\dist\cli.js --version
 ```
 
-출력 버전은 `4.9.1`이어야 한다. 설치가 끝나면 다음 파일이 있어야 한다.
+출력 버전은 `4.9.2`이어야 한다. 설치가 끝나면 다음 파일이 있어야 한다.
 
 ```text
-tools\kordoc\node_modules\.bin\kordoc.cmd
+tools\kordoc\node_modules\kordoc\dist\cli.js
 ```
 
 ### 3.4 저장소 검증 도구 설치
@@ -168,8 +168,9 @@ Word Online이나 단순히 `.docx` 파일을 열 수 있는 다른 프로그램
 codex mcp list
 ```
 
-목록에서 `kordoc` 항목의 명령은 검증된 버전인
-`npx.cmd -y kordoc@4.9.1 mcp`를 사용해야 한다.
+목록에서 `kordoc` 항목은 이 저장소 lock과 동일한
+`node.exe <clone 경로>\tools\kordoc\node_modules\kordoc\dist\cli.js mcp`를
+사용해야 한다.
 
 새 HWPX 작성이나 기존 HWPX 편집은 설치된 공식 `hwpx` skill을 사용한다.
 skill이 없다면 프로젝트 규칙에 따라 별도 clone으로 설치하고, 설치된
@@ -264,7 +265,7 @@ D:\문서\보고서.doc
 D:\문서\보고서.docx
 ```
 
-### 5. 특정 DOC 하나를 Markdown까지 변환
+### 5.2 특정 DOC 하나를 Markdown까지 변환
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
@@ -344,6 +345,8 @@ convert-doc-to-docx.ps1
   [-Recurse]
   [-Overwrite]
   [-LogPath <로그 파일>]
+  [-OutputFormat Table|Json]
+  [-TimeoutSeconds <초>]
   [-DocumentKey <문서 암호>]
 ```
 
@@ -355,7 +358,9 @@ convert-doc-to-docx.ps1
 | `-Recurse` | 아니오 | 폴더 지정 시 하위 폴더까지 포함 |
 | `-Overwrite` | 아니오 | 기존 `.docx`를 성공 결과로 교체 |
 | `-LogPath` | 아니오 | 처리 로그를 추가 기록할 파일 |
-| `-DocumentKey` | 아니오 | 암호가 걸린 문서를 열 때 사용할 암호 |
+| `-OutputFormat` | 아니오 | `Table`(기본) 또는 압축 JSON 레코드 배열 |
+| `-TimeoutSeconds` | 아니오 | 문서 한 건의 Word 변환 제한 시간. 기본 `300`초 |
+| `-DocumentKey` | 아니오 | 암호가 걸린 문서용 `String` 또는 `SecureString`. 미지정 시 환경변수 사용 |
 | `-Password` | 아니오 | `-DocumentKey`의 별칭 |
 
 예:
@@ -387,7 +392,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 New-Item -ItemType Directory -Force -Path "D:\문서로그"
 ```
 
-로그 파일 경로를 원본 `.doc` 또는 결과 `.docx`와 동일하게 지정할 수
+로그 파일 경로에는 `*`, `?`, `[]` 와일드카드를 사용할 수 없다. 또한 원본
+`.doc`, 결과 `.docx` 또는 Markdown 통합 변환의 `.md`와 동일하게 지정할 수
 없다. 원본이나 결과를 로그로 덮어쓰는 상황을 방지하기 위해 변환 전에
 실패한다.
 
@@ -406,7 +412,11 @@ convert-doc-to-md.ps1
   -Path <파일 또는 폴더>
   [-Recurse]
   [-Overwrite]
-  [-KordocCliPath <kordoc.cmd 경로>]
+  [-LogPath <로그 파일>]
+  [-OutputFormat Table|Json]
+  [-TimeoutSeconds <초>]
+  [-DocumentKey <String|SecureString>]
+  [-KordocCliPath <cli.js 경로>]
 ```
 
 | 옵션 | 필수 | 설명 |
@@ -414,12 +424,16 @@ convert-doc-to-md.ps1
 | `-Path` | 예 | `.doc` 파일 또는 `.doc`가 있는 폴더 |
 | `-Recurse` | 아니오 | 폴더 지정 시 하위 폴더까지 포함 |
 | `-Overwrite` | 아니오 | 기존 DOCX/Markdown을 갱신 |
-| `-KordocCliPath` | 아니오 | 기본 로컬 CLI 대신 사용할 Kordoc 실행 파일 |
+| `-LogPath` | 아니오 | DOC→DOCX와 Markdown 단계의 로그를 추가 기록 |
+| `-OutputFormat` | 아니오 | `Table`(기본) 또는 압축 JSON 레코드 배열 |
+| `-TimeoutSeconds` | 아니오 | DOC→DOCX 단계의 문서별 제한 시간. 기본 `300`초 |
+| `-DocumentKey` | 아니오 | 암호 DOC용 `String` 또는 `SecureString`. `-Password` 별칭 지원 |
+| `-KordocCliPath` | 아니오 | 기본 로컬 CLI 대신 사용할 Kordoc JavaScript 진입점 |
 
 기본 Kordoc 경로는 다음이다.
 
 ```text
-tools\kordoc\node_modules\.bin\kordoc.cmd
+tools\kordoc\node_modules\kordoc\dist\cli.js
 ```
 
 특수한 로컬 설치를 명시해야 할 때만 `-KordocCliPath`를 사용한다.
@@ -428,7 +442,7 @@ tools\kordoc\node_modules\.bin\kordoc.cmd
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -File ".\tools\doc-to-docx\convert-doc-to-md.ps1" `
   -Path "D:\문서\보고서.doc" `
-  -KordocCliPath ".\tools\kordoc\node_modules\.bin\kordoc.cmd"
+  -KordocCliPath ".\tools\kordoc\node_modules\kordoc\dist\cli.js"
 ```
 
 일반적인 사용에서는 이 옵션을 생략하는 편이 안전하다. 기본 경로와
@@ -563,13 +577,40 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -Password "정확한 암호"
 ```
 
+명령행 평문 노출을 피하려면 현재 PowerShell 세션에서 `SecureString`을
+전달한다.
+
+```powershell
+$documentKey = Read-Host "문서 암호" -AsSecureString
+& ".\tools\doc-to-docx\convert-doc-to-md.ps1" `
+  -Path "D:\문서\암호문서.doc" `
+  -DocumentKey $documentKey
+```
+
+에이전트나 비대화형 실행은 신뢰할 수 있는 비밀 저장소에서 읽은 값을 현재
+프로세스의 `HWPX_WIZ_DOC_PASSWORD`에 넣을 수 있다. 자식 Word 변환기에는
+명령행 인자가 아니라 환경변수로 전달된다.
+
+```powershell
+$env:HWPX_WIZ_DOC_PASSWORD = "<보안 저장소에서 읽은 값>"
+try {
+    powershell.exe -NoProfile -ExecutionPolicy Bypass `
+      -File ".\tools\doc-to-docx\convert-doc-to-md.ps1" `
+      -Path "D:\문서\암호문서.doc" `
+      -OutputFormat Json
+}
+finally {
+    Remove-Item Env:HWPX_WIZ_DOC_PASSWORD -ErrorAction SilentlyContinue
+}
+```
+
 암호가 틀리면 Word의 대화형 암호 입력창을 기다리지 않고 실패 레코드와
 비정상 종료 코드를 반환해야 한다. 원본 해시는 변경되지 않으며, 성공하지
 못한 `.docx`는 남기지 않는다.
 
 암호를 문서, 로그, 셸 기록, Git에 평문으로 남기지 않도록 주의한다.
-공유 환경에서는 명령행 대신 안전한 별도 입력 방식을 사용하고, 현재
-스크립트 계약이 허용하는 범위 안에서만 자동화한다.
+공유 환경에서는 명령행 평문 대신 `SecureString` 또는
+`HWPX_WIZ_DOC_PASSWORD`를 사용한다.
 
 ### 9.2 손상된 DOC
 
@@ -587,6 +628,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 - `-LogPath`의 부모 폴더가 존재하지 않음
 - 로그 경로가 입력 `.doc`와 충돌함
 - 로그 경로가 결과 `.docx`와 충돌함
+- Markdown 통합 변환에서 로그 경로가 결과 `.md`와 충돌함
+- 로그 경로에 와일드카드가 포함됨
 
 예:
 
@@ -643,6 +686,16 @@ HWP, HWPX, DOCX, PDF, XLSX의 내용을 읽거나 구조를 추출할 때는 Cod
 파일 경로를 요청에 명시하면 원본 파일과 같은 폴더를 기준으로 작업한다.
 중앙 결과 폴더가 필요하면 `output`에 저장하도록 명시한다.
 
+MCP 호출이 아니라 로컬 Markdown 파일이 필요한 경우에는 저장소 lock의
+Kordoc CLI를 직접 실행한다.
+
+```powershell
+node .\tools\kordoc\node_modules\kordoc\dist\cli.js `
+  --silent `
+  -o "D:\문서\보고서.md" `
+  "D:\문서\보고서.pdf"
+```
+
 ### 11.2 HWPX 생성·편집
 
 편집 가능한 HWPX를 만들거나 수정할 때는 `hwpx` skill을 명시한다.
@@ -658,7 +711,8 @@ namespace와 layout 검증까지 수행해줘.
 Python 보조 코드가 필요하면 다음 원칙을 지킨다.
 
 ```powershell
-uv run python .\scripts\build_hwpx.py
+$hwpxSkill = Join-Path $HOME ".agents\skills\hwpx"
+uv run python "$hwpxSkill\scripts\build_hwpx.py"
 ```
 
 전역 `pip install`, 임의의 Python 환경, 프로젝트 밖의 자체 HWPX 변환기를
@@ -686,6 +740,25 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -File ".\tools\verify.ps1"
 ```
 
+기본값은 Word COM을 포함하는 `-Tier Full`이다. Word 없는 환경과 GitHub
+Actions에서는 정적 검사만 실행한다.
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File ".\tools\verify.ps1" `
+  -Tier Static
+```
+
+설치된 hwpx skill의 template을 구조·layout·한컴오피스로 추가 확인할 때만
+다음 opt-in smoke를 사용한다. skill 또는 한컴 COM이 없으면 해당 단계는
+건너뛰고, smoke 실패는 경고로 보고한다.
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File ".\tools\verify.ps1" `
+  -IncludeHwpx
+```
+
 검증기는 다음을 순서대로 확인한다.
 
 1. Pester `6.1.0` 이상
@@ -693,12 +766,14 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 3. PATH의 `uv`
 4. PATH의 Node.js와 npm
 5. 등록된 `Word.Application` COM
-6. `tools\kordoc\package.json`, lockfile, 로컬 CLI
-7. Kordoc 선언·lockfile·실행 파일 버전 `4.9.1`
-8. `npm ci --dry-run --ignore-scripts`
-9. 전체 Pester 테스트
-10. `tools`와 `tests`의 PSScriptAnalyzer
-11. `uv lock --check`
+6. uv 환경의 `hwpx`, `lxml`, `win32com` import
+7. `tools\kordoc\package.json`, lockfile, 로컬 CLI
+8. Kordoc 선언·lockfile·실행 파일 버전 `4.9.2`
+9. `npm ci --dry-run --ignore-scripts`
+10. 선택 시 hwpx skill template smoke
+11. 전체 Pester 테스트
+12. `tools`와 `tests`의 PSScriptAnalyzer
+13. `uv lock --check`
 
 마지막에 다음 문장이 나오면 통과다.
 
@@ -830,6 +905,23 @@ $records |
   Format-Table -AutoSize
 ```
 
+에이전트나 외부 프로세스는 `-OutputFormat Json`으로 성공 스트림의 한 줄
+JSON 배열만 받는다.
+
+```powershell
+$json = & powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File ".\tools\doc-to-docx\convert-doc-to-md.ps1" `
+  -Path "D:\문서\보고서.doc" `
+  -OutputFormat Json
+
+if ($LASTEXITCODE -ne 0) {
+    throw "문서 변환 실패"
+}
+
+$records = @($json | ConvertFrom-Json)
+$records | Select-Object Status, Source, Docx, Target, Reason, Error
+```
+
 dot-source를 사용할 때도 원본을 덮어쓰지 않으며, 호출자의 현재 위치를
 변환기가 임의로 바꾸지 않는 계약을 유지한다.
 
@@ -896,7 +988,7 @@ launcher는 명령을 입력해 두지만 자동으로 autonomous turn을 시작
 - [ ] 저장소 루트에서 실행하고 있는가?
 - [ ] `uv sync --locked`를 완료했는가?
 - [ ] `npm ci --prefix .\tools\kordoc`를 완료했는가?
-- [ ] `node ...\cli.js --version`이 `4.9.1`인가?
+- [ ] `node ...\cli.js --version`이 `4.9.2`인가?
 - [ ] Pester와 PSScriptAnalyzer 최소 버전이 설치되어 있는가?
 - [ ] Microsoft Word desktop이 설치되어 있는가?
 - [ ] Kordoc MCP와 `hwpx` skill이 공식 경로인가?

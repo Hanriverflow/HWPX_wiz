@@ -32,8 +32,6 @@ $ErrorActionPreference = "Stop"
 $script:RepoRoot = Split-Path -Parent $PSScriptRoot
 $script:KordocRoot = Join-Path $script:RepoRoot "tools\kordoc"
 $script:KordocPackagePath = Join-Path $script:KordocRoot "package.json"
-$script:VerifierPath = Join-Path $script:RepoRoot "tools\verify.ps1"
-$script:VerifierTestPath = Join-Path $script:RepoRoot "tests\Verify.Tests.ps1"
 $script:RequestedKordocVersion = $KordocVersion
 $script:SelectedHwpxSkillPath = $HwpxSkillPath
 
@@ -308,68 +306,6 @@ function Confirm-Apply {
     return $answer -match "^(?i:y|yes)$"
 }
 
-function Set-ExactText {
-    [CmdletBinding(SupportsShouldProcess)]
-    param(
-        [Parameter(Mandatory)]
-        [string]$Path,
-
-        [Parameter(Mandatory)]
-        [string]$OldText,
-
-        [Parameter(Mandatory)]
-        [string]$NewText
-    )
-
-    $text = [System.IO.File]::ReadAllText($Path)
-    $occurrences = ([regex]::Matches(
-        $text,
-        [regex]::Escape($OldText)
-    )).Count
-    if ($occurrences -ne 1) {
-        throw "Expected one pinned version in '$Path', found $occurrences."
-    }
-
-    if ($PSCmdlet.ShouldProcess($Path, "Update pinned version")) {
-        $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-        [System.IO.File]::WriteAllText(
-            $Path,
-            $text.Replace($OldText, $NewText),
-            $utf8NoBom
-        )
-    }
-}
-
-function Update-KordocBaseline {
-    [CmdletBinding(SupportsShouldProcess)]
-    param(
-        [Parameter(Mandatory)]
-        [version]$OldVersion,
-
-        [Parameter(Mandatory)]
-        [version]$NewVersion
-    )
-
-    if ($PSCmdlet.ShouldProcess(
-            "tools/verify.ps1 and tests/Verify.Tests.ps1",
-            "Update Kordoc version baseline"
-        )) {
-        Set-ExactText `
-            -Path $script:VerifierPath `
-            -OldText ('$script:RequiredKordocVersion = [version]"{0}"' -f $OldVersion) `
-            -NewText ('$script:RequiredKordocVersion = [version]"{0}"' -f $NewVersion)
-        Set-ExactText `
-            -Path $script:VerifierTestPath `
-            -OldText ('Should -Be ([version]"{0}")' -f $OldVersion) `
-            -NewText ('Should -Be ([version]"{0}")' -f $NewVersion)
-    }
-
-    Write-Warning (
-        "Review and update the pinned version in README.md, docs/UPSTREAMS.md, " +
-        "docs/USAGE_GUIDE.md, and the Codex Kordoc MCP registration."
-    )
-}
-
 function Invoke-KordocUpdate {
     [CmdletBinding(SupportsShouldProcess)]
     param([Parameter(Mandatory)][pscustomobject]$Plan)
@@ -391,7 +327,10 @@ function Invoke-KordocUpdate {
         $null = Invoke-CapturedCommand -FilePath $npmPath -Arguments @(
             "ci", "--prefix", $script:KordocRoot, "--ignore-scripts"
         )
-        Update-KordocBaseline -OldVersion $Plan.Current -NewVersion $Plan.Target
+        Write-Warning (
+            "Review and update the pinned version in README.md, docs/UPSTREAMS.md, " +
+            "docs/USAGE_GUIDE.md, HWPX_wiz_easy_guide.html, and the Codex Kordoc MCP registration."
+        )
         Write-Output "Kordoc update applied locally. Run tools/verify.ps1 before committing."
     }
 }
