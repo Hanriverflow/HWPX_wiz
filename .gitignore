@@ -1,6 +1,8 @@
 .venv/
 tools/kordoc/node_modules/
 .gstack/
+.gjc/
+.omc/
 .omo/*
 !.omo/omo.jsonc
 !.omo/prompts/
