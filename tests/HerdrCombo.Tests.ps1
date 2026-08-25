@@ -4,7 +4,7 @@ BeforeAll {
     $script:LauncherPath = Join-Path $script:RepoRoot "tools\herdr\start-combo.ps1"
 }
 
-Describe "Project-local OMO routing" {
+Describe "Project-local OMO routing" -Tag "Static" {
     It "routes planning and review to Sol and execution to Luna" {
         Test-Path -LiteralPath $script:ConfigPath | Should -BeTrue
 
@@ -37,7 +37,7 @@ Describe "Project-local OMO routing" {
     }
 }
 
-Describe "Herdr combo launcher" {
+Describe "Herdr combo launcher" -Tag "Static" {
     It "rejects execution outside a Herdr-managed pane" {
         Test-Path -LiteralPath $script:LauncherPath | Should -BeTrue
 

@@ -134,3 +134,8 @@ omo auth check --model openai-codex/gpt-5.6-luna
 
 현재 workflow는 Fast mode 상속을 전제로 하지 않는다. Luna Fast 지원 여부와
 관계없이 BUILD 및 child routing은 명시된 reasoning level로 동작해야 한다.
+
+모델 식별자를 교체할 때는 `.omo/omo.jsonc`를 단일 기준으로 먼저 갱신하고,
+이 문서의 역할 표·`omo auth check` 예시와 `tests/HerdrCombo.Tests.ps1`의
+리터럴을 같은 변경에서 맞춘다. 모델 ID를 자동 추측하거나 일부 파일만
+바꾸지 않으며, 마지막에 HerdrCombo 테스트로 drift를 확인한다.
