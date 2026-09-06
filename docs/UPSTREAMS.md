@@ -18,11 +18,11 @@
 
 ## 검증된 기준선
 
-2026-08-23에 다음 상태를 확인했습니다.
+2026-09-06에 다음 상태를 확인했습니다.
 
 | 구성 요소 | 기준선 |
 |---|---|
-| Kordoc | `4.9.2` (`kordoc@4`가 해석한 최신 4.x) |
+| Kordoc | `4.13.1` (`kordoc@4`가 해석한 최신 4.x) |
 | hwpx-skill | `main@96a2633f23a08f707679d7e212ebdc59948260e6` (`v1.17.0` + 3 commits) |
 | Python 패키지 | `uv.lock` (`python-hwpx 6.3.0`; 2026-08-25 outdated 보고 없음) |
 
@@ -58,7 +58,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 # 특정 Kordoc 후보를 명시
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -File .\tools\update-upstreams.ps1 `
-  -Component Kordoc -KordocVersion 4.9.2 -Apply
+  -Component Kordoc -KordocVersion 4.13.1 -Apply
 
 # hwpx-skill만 확인·적용
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
@@ -106,7 +106,7 @@ npm ci --prefix .\tools\kordoc
 node .\tools\kordoc\node_modules\kordoc\dist\cli.js --version
 ```
 
-변환기와 MCP는 `tools\kordoc\package-lock.json`의 정확한 `kordoc@4.9.2`만
+변환기와 MCP는 `tools\kordoc\package-lock.json`의 정확한 `kordoc@4.13.1`만
 사용합니다. 두 경로 모두 registry-backed `npx` 호출 없이 로컬
 `node_modules\kordoc\dist\cli.js`를 직접 실행합니다.
 

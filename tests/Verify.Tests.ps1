@@ -143,7 +143,7 @@ args = ["$tomlCliPath", "mcp"]
         @'
 [mcp_servers.kordoc]
 command = "npx.cmd"
-args = ["-y", "kordoc@4.9.2", "mcp"]
+args = ["-y", "kordoc@4.13.1", "mcp"]
 '@ | Set-Content -LiteralPath $configPath -Encoding UTF8
 
         Get-KordocMcpConfigurationWarning `
