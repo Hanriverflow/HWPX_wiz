@@ -18,12 +18,12 @@
 
 ## 검증된 기준선
 
-2026-09-06에 다음 상태를 확인했습니다.
+2026-09-14에 다음 상태를 확인했습니다.
 
 | 구성 요소 | 기준선 |
 |---|---|
 | Kordoc | `4.13.1` (`kordoc@4`가 해석한 최신 4.x) |
-| hwpx-skill | `main@96a2633f23a08f707679d7e212ebdc59948260e6` (`v1.17.0` + 3 commits) |
+| hwpx-skill | `main@34b34f99ee29d930efdfd0c3fc428909e03a9f81` (`v1.18.0`) |
 | Python 패키지 | `uv.lock` (`python-hwpx 6.3.0`; 2026-08-25 outdated 보고 없음) |
 
 현재 MCP와 DOC→Markdown 변환기는 모두
