@@ -17,6 +17,8 @@ param(
 
     [switch]$IncludeHwpx,
 
+    [string]$HwpxSkillPath = (Join-Path $HOME ".agents\skills\hwpx"),
+
     [string[]]$SimulateMissing = @()
 )
 
@@ -132,7 +134,7 @@ function Get-RepositoryPrerequisiteFailure {
     }
 
     if ($missing -contains "HwpxPython") {
-        $failures.Add("HWPX skill Python imports are unavailable: hwpx, lxml, win32com.")
+        $failures.Add("HWPX skill Python imports are unavailable: hwpx, lxml, win32com, jsonschema, PIL.")
     }
     elseif (
         $null -ne $uv -and
@@ -142,11 +144,11 @@ function Get-RepositoryPrerequisiteFailure {
             -FilePath $uv.Source `
             -Arguments @(
                 "run", "--project", $script:VerifierRoot,
-                "python", "-c", "import hwpx, lxml, win32com"
+                "python", "-c", "import hwpx, lxml, win32com, jsonschema, PIL"
             )
         if ($importExitCode -ne 0) {
             $failures.Add(
-                "HWPX skill Python imports failed: hwpx, lxml, win32com."
+                "HWPX skill Python imports failed: hwpx, lxml, win32com, jsonschema, PIL. Run 'uv sync --locked'."
             )
         }
     }
@@ -188,46 +190,12 @@ function Invoke-HwpxValidationSmoke {
         [string]$UvPath
     )
 
-    $validatorPath = Join-Path $SkillRoot "scripts\validate.py"
-    $templatePath = Join-Path $SkillRoot "assets\report-template.hwpx"
-    if (
-        -not (Test-Path -LiteralPath $validatorPath -PathType Leaf) -or
-        -not (Test-Path -LiteralPath $templatePath -PathType Leaf)
-    ) {
-        Write-Information "Optional HWPX validation skipped; hwpx skill assets were not found." `
-            -InformationAction Continue
-        return 0
-    }
-
-    $baseArguments = @(
-        "run", "--project", $script:VerifierRoot,
-        "python", $validatorPath, $templatePath
-    )
-    $layoutExitCode = Invoke-VerifyExternalCommand `
-        -FilePath $UvPath `
-        -Arguments ($baseArguments + "--layout")
-    if ($layoutExitCode -ne 0) {
-        Write-Warning "Optional HWPX layout validation failed with exit code $layoutExitCode."
-        return 0
-    }
-
-    $hancomType = [type]::GetTypeFromProgID("HWPFrame.HwpObject")
-    if ($null -eq $hancomType) {
-        Write-Information "Optional HWPX Hancom validation skipped; COM is not registered." `
-            -InformationAction Continue
-        return 0
-    }
-
-    $hancomExitCode = Invoke-VerifyExternalCommand `
-        -FilePath $UvPath `
-        -Arguments ($baseArguments + "--hancom")
-    if ($hancomExitCode -ne 0) {
-        Write-Warning "Optional HWPX Hancom validation failed with exit code $hancomExitCode."
-        return 0
-    }
-
-    Write-Information "Optional HWPX validation smoke passed." -InformationAction Continue
-    return 0
+    $checker = Join-Path $script:VerifierRoot "tools\hwpx\check_integration.py"
+    return (Invoke-VerifyExternalCommand -FilePath $UvPath -Arguments @(
+        "run", "--locked", "--project", $script:VerifierRoot,
+        "python", "-X", "utf8", $checker,
+        "--skill-root", $SkillRoot, "--hancom", "required", "--render"
+    ))
 }
 
 function Get-LockedKordocVersion {
@@ -296,6 +264,8 @@ function Invoke-RepositoryVerification {
         [string]$VerificationTier = "Full",
 
         [switch]$IncludeHwpxSmoke,
+
+        [string]$SkillRoot = (Join-Path $HOME ".agents\skills\hwpx"),
 
         [Parameter()]
         [string[]]$SimulatedMissing = @()
@@ -375,10 +345,13 @@ function Invoke-RepositoryVerification {
         }
         if ($IncludeHwpxSmoke) {
             $uvCommand = (Get-Command uv -ErrorAction Stop).Source
-            $hwpxSkillRoot = Join-Path $HOME ".agents\skills\hwpx"
-            $null = Invoke-HwpxValidationSmoke `
-                -SkillRoot $hwpxSkillRoot `
+            $hwpxExitCode = Invoke-HwpxValidationSmoke `
+                -SkillRoot $SkillRoot `
                 -UvPath $uvCommand
+            if ($hwpxExitCode -ne 0) {
+                Write-Information "ERROR: Requested HWPX integration gate failed." -InformationAction Continue
+                return 1
+            }
         }
         if ($VerificationTier -eq "Full") {
             Write-Information (
@@ -454,6 +427,7 @@ $exitCode = Invoke-RepositoryVerification `
     -PrerequisiteOnly:$PrerequisiteCheckOnly `
     -VerificationTier $Tier `
     -IncludeHwpxSmoke:$IncludeHwpx `
+    -SkillRoot $HwpxSkillPath `
     -SimulatedMissing $SimulateMissing
 if ($isDotSourced) {
     return $exitCode

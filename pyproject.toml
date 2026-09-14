@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Local HWP/HWPX automation workspace"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "jsonschema>=4.18,<5",
     "lxml>=6.1,<7",
+    "Pillow>=10,<13",
     "python-hwpx>=6.3,<7",
     "pywin32>=312; sys_platform == 'win32'",
 ]

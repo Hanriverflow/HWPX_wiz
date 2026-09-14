@@ -58,7 +58,7 @@ cd D:\Code\Projects\HWPX_wiz
 uv sync --locked
 ```
 
-현재 환경은 Python 3.12, `python-hwpx`, `lxml`, `pywin32`를 잠금 파일 기준으로 설치합니다.
+현재 환경은 Python 3.12, `python-hwpx`, `lxml`, `pywin32`, `jsonschema`, `Pillow`를 잠금 파일 기준으로 설치합니다.
 hwpx skill의 Python 스크립트도 저장소 루트에서 `uv run python`으로 실행해
 이 잠금 환경의 `hwpx`, `lxml`, `win32com`을 사용합니다.
 
@@ -72,11 +72,13 @@ codex mcp list
 `node.exe <clone 경로>\tools\kordoc\node_modules\kordoc\dist\cli.js mcp`로 등록합니다. 새 Codex 작업에서
 Kordoc 도구를 사용하면 됩니다.
 
-공식 `hwpx` skill이 없다면 다음 위치에 설치합니다.
+공문 양식 재작성 지침을 포함한 `hwpx` skill이 없다면 다음처럼 설치합니다.
+기존 설치가 있으면 덮어쓰지 말고 [연결·복원 절차](docs/HWPX_INTEGRATION.md)를 따릅니다.
 
 ```powershell
-git clone --branch main https://github.com/jkf87/hwpx-skill.git C:\Users\Hank\.agents\skills\hwpx
-git -C C:\Users\Hank\.agents\skills\hwpx describe --tags --exact-match HEAD
+$hwpxSkill = Join-Path $HOME '.agents\skills\hwpx'
+git clone --branch codex/reference-official-letter https://github.com/Hanriverflow/hwpx-skill.git $hwpxSkill
+git -C $hwpxSkill rev-parse HEAD
 ```
 
 ## 다른 PC에서 동일하게 사용하기
@@ -256,6 +258,8 @@ node .\tools\kordoc\node_modules\kordoc\dist\cli.js --version
 ```
 
 설치된 `hwpx` skill은 먼저 로컬 변경 여부를 확인한 뒤 fast-forward로만 갱신합니다.
+아래 공식 `main` 갱신 예시는 개인 수정 브랜치에 그대로 적용하지 않습니다.
+현재 고정한 수정 브랜치는 [HWPX 연결 문서](docs/HWPX_INTEGRATION.md)의 갱신 절차를 따릅니다.
 
 ```powershell
 git -C C:\Users\Hank\.agents\skills\hwpx status -sb
@@ -351,8 +355,10 @@ uv lock --check
 GitHub Actions는 Word 없이 실행 가능한 `-Tier Static` 계층만 검증합니다.
 Word COM을 포함한 기본 `-Tier Full` 게이트는 로컬 Windows에서 실행해야 하며,
 한컴오피스의 설치 또는 사용 가능 상태를 대신 해결하지 않습니다.
-hwpx skill template의 구조·layout·한컴 smoke까지 확인하려면 로컬에서
-`.\tools\verify.ps1 -IncludeHwpx`를 사용합니다.
+설치된 hwpx skill의 커밋·공문 지침 연결, 실제 공문 생성·한컴 열림·페이지 렌더까지
+확인하려면 로컬에서 `.\tools\verify.ps1 -IncludeHwpx`를 사용합니다. 명시적으로
+선택한 이 검사는 실패를 경고로 넘기지 않습니다. 자세한 내용은
+[`docs/HWPX_INTEGRATION.md`](docs/HWPX_INTEGRATION.md)를 참고합니다.
 
 ## 안전 메모
 

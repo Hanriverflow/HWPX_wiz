@@ -152,7 +152,7 @@ args = ["-y", "kordoc@4.13.1", "mcp"]
             Should -Match "local Kordoc CLI"
     }
 
-    It "skips a missing optional HWPX skill without failing" {
+    It "fails a requested HWPX gate when the skill is missing" {
         . $script:VerifierPath -PrerequisiteCheckOnly | Out-Null
         $missingSkillRoot = Join-Path $TestDrive "missing-hwpx-skill"
         $uvPath = (Get-Command uv -ErrorAction Stop).Source
@@ -163,11 +163,11 @@ args = ["-y", "kordoc@4.13.1", "mcp"]
                 -UvPath $uvPath 6>&1
         )
 
-        $output[-1] | Should -Be 0
-        ($output -join [Environment]::NewLine) | Should -Match "skipped"
+        $output[-1] | Should -Not -Be 0
+        ($output -join [Environment]::NewLine) | Should -Match '"ok": false'
     }
 
-    It "keeps a failing optional HWPX validator warning-only" {
+    It "rejects a legacy template-only skill without the required integration" {
         . $script:VerifierPath -PrerequisiteCheckOnly | Out-Null
         $skillRoot = Join-Path $TestDrive "failing-hwpx-skill"
         $scriptsPath = Join-Path $skillRoot "scripts"
@@ -185,9 +185,9 @@ args = ["-y", "kordoc@4.13.1", "mcp"]
                 -UvPath $uvPath 3>&1 6>&1
         )
 
-        $output[-1] | Should -Be 0
+        $output[-1] | Should -Not -Be 0
         ($output -join [Environment]::NewLine) |
-            Should -Match "layout validation failed"
+            Should -Match "Installed skill lacks"
     }
 
     It "restores the caller location when dot-sourced" {

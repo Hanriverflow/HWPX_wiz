@@ -14,7 +14,7 @@
 - upstream 소스를 이 저장소로 복사하거나 Git submodule로 포함하지 않습니다.
 - upstream을 수정해야 할 때만 해당 저장소를 개인 계정으로 fork합니다.
 - fork의 `main`은 공식 upstream과 동일하게 유지하고, 개인 수정은 별도
-  `custom` 브랜치에서 관리합니다.
+  수정 브랜치에서 관리합니다. 현재는 `codex/reference-official-letter`입니다.
 
 ## 검증된 기준선
 
@@ -24,7 +24,14 @@
 |---|---|
 | Kordoc | `4.13.1` (`kordoc@4`가 해석한 최신 4.x) |
 | hwpx-skill | `main@34b34f99ee29d930efdfd0c3fc428909e03a9f81` (`v1.18.0`) |
+| hwpx-skill 개인 지침 | `Hanriverflow/hwpx-skill`, `codex/reference-official-letter@40b5d7e06bb68b87099974ff76cd0d23ae1c367d` |
 | Python 패키지 | `uv.lock` (`python-hwpx 6.3.0`; 2026-08-25 outdated 보고 없음) |
+
+실제 활성 스킬은 위 개인 지침 브랜치를 사용합니다. 원본 생성기는 그대로 두고
+공문 양식 분석·재작성 지침을 추가했습니다. 고정 커밋·지침 해시, 새 PC 복원 및
+실행 검증은 [`HWPX_INTEGRATION.md`](HWPX_INTEGRATION.md)와
+[`skill-lock.json`](../tools/hwpx/skill-lock.json)을 따릅니다. 수정 브랜치에서는
+아래 자동 적용기의 `main` 전용 안전장치가 의도적으로 적용을 거부합니다.
 
 현재 MCP와 DOC→Markdown 변환기는 모두
 `tools\kordoc\node_modules\kordoc\dist\cli.js`를 사용해 검증 기준선을

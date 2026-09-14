@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/Hanriverflow/hwpx-skill.git",
+  "branch": "codex/reference-official-letter",
+  "commit": "40b5d7e06bb68b87099974ff76cd0d23ae1c367d",
+  "upstream_commit": "34b34f99ee29d930efdfd0c3fc428909e03a9f81",
+  "reference_guide": "references/reference-official-letter.md",
+  "guide_sha256_lf": "b6f86dd25acfa0896417490de190ba894c19027ed7becb013533b717df7a3fc6"
+}
