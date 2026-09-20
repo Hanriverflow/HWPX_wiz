@@ -9,7 +9,7 @@
 구형 Word `.doc`를 `.docx`로 바꾸는 보조 변환기를 함께 제공한다.
 
 > 기준 경로 예시: `D:\Code\Projects\HWPX_wiz`
-> 기준 Kordoc 버전: `4.13.1`
+> 기준 Kordoc 버전: `4.14.0`
 > 대상 환경: Windows PowerShell, Microsoft Word desktop, Node.js/npm, `uv`
 
 ---
@@ -119,7 +119,7 @@ npm ci --prefix .\tools\kordoc
 node .\tools\kordoc\node_modules\kordoc\dist\cli.js --version
 ```
 
-출력 버전은 `4.13.1`이어야 한다. 설치가 끝나면 다음 파일이 있어야 한다.
+출력 버전은 `4.14.0`이어야 한다. 설치가 끝나면 다음 파일이 있어야 한다.
 
 ```text
 tools\kordoc\node_modules\kordoc\dist\cli.js
@@ -768,7 +768,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 5. 등록된 `Word.Application` COM
 6. uv 환경의 `hwpx`, `lxml`, `win32com` import
 7. `tools\kordoc\package.json`, lockfile, 로컬 CLI
-8. Kordoc 선언·lockfile·실행 파일 버전 `4.13.1`
+8. Kordoc 선언·lockfile·실행 파일 버전 `4.14.0`
 9. `npm ci --dry-run --ignore-scripts`
 10. 선택 시 hwpx skill template smoke
 11. 전체 Pester 테스트
@@ -988,7 +988,7 @@ launcher는 명령을 입력해 두지만 자동으로 autonomous turn을 시작
 - [ ] 저장소 루트에서 실행하고 있는가?
 - [ ] `uv sync --locked`를 완료했는가?
 - [ ] `npm ci --prefix .\tools\kordoc`를 완료했는가?
-- [ ] `node ...\cli.js --version`이 `4.13.1`인가?
+- [ ] `node ...\cli.js --version`이 `4.14.0`인가?
 - [ ] Pester와 PSScriptAnalyzer 최소 버전이 설치되어 있는가?
 - [ ] Microsoft Word desktop이 설치되어 있는가?
 - [ ] Kordoc MCP와 `hwpx` skill이 공식 경로인가?

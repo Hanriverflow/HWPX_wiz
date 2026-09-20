@@ -18,13 +18,13 @@
 
 ## 검증된 기준선
 
-2026-09-14에 다음 상태를 확인했습니다.
+2026-09-20에 다음 상태를 확인했습니다.
 
 | 구성 요소 | 기준선 |
 |---|---|
-| Kordoc | `4.13.1` (`kordoc@4`가 해석한 최신 4.x) |
-| hwpx-skill | `main@34b34f99ee29d930efdfd0c3fc428909e03a9f81` (`v1.18.0`) |
-| hwpx-skill 개인 지침 | `Hanriverflow/hwpx-skill`, `codex/reference-official-letter@40b5d7e06bb68b87099974ff76cd0d23ae1c367d` |
+| Kordoc | `4.14.0` (`kordoc@4`가 해석한 최신 4.x) |
+| hwpx-skill | `main@ba90fc5ae15f4aead8dab4f9d69d4830b9569859` (`v1.18.0+`) |
+| hwpx-skill 개인 지침 | `Hanriverflow/hwpx-skill`, `codex/reference-official-letter@2cafd608273971833c763e8db8ee53a5a9c52164` |
 | Python 패키지 | `uv.lock` (`python-hwpx 6.3.0`; 2026-08-25 outdated 보고 없음) |
 
 실제 활성 스킬은 위 개인 지침 브랜치를 사용합니다. 원본 생성기는 그대로 두고
@@ -65,7 +65,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 # 특정 Kordoc 후보를 명시
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -File .\tools\update-upstreams.ps1 `
-  -Component Kordoc -KordocVersion 4.13.1 -Apply
+  -Component Kordoc -KordocVersion 4.14.0 -Apply
 
 # hwpx-skill만 확인·적용
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
@@ -113,7 +113,7 @@ npm ci --prefix .\tools\kordoc
 node .\tools\kordoc\node_modules\kordoc\dist\cli.js --version
 ```
 
-변환기와 MCP는 `tools\kordoc\package-lock.json`의 정확한 `kordoc@4.13.1`만
+변환기와 MCP는 `tools\kordoc\package-lock.json`의 정확한 `kordoc@4.14.0`만
 사용합니다. 두 경로 모두 registry-backed `npx` 호출 없이 로컬
 `node_modules\kordoc\dist\cli.js`를 직접 실행합니다.
 

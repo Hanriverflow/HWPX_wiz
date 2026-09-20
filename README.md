@@ -296,7 +296,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 # Kordoc 4.x 후보만 확인·적용
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -File .\tools\update-upstreams.ps1 `
-  -Component Kordoc -KordocVersion 4.13.1 -Apply
+  -Component Kordoc -KordocVersion 4.14.0 -Apply
 
 # hwpx-skill만 fast-forward로 적용
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
