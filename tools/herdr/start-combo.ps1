@@ -29,9 +29,6 @@ if ($env:HERDR_ENV -ne "1") {
     throw "This launcher must run inside a Herdr-managed pane (HERDR_ENV=1)."
 }
 
-$herdrCommand = Get-Command herdr -ErrorAction Stop
-$null = Get-Command omo -ErrorAction Stop
-
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $requiredPaths = @(
     (Join-Path $repoRoot ".omo\omo.jsonc"),
@@ -57,6 +54,10 @@ if ($ValidateOnly) {
     Write-Output "Herdr combo configuration is valid."
     return
 }
+
+# Runtime commands are only required when changing the Herdr layout.
+$herdrCommand = Get-Command herdr -ErrorAction Stop
+$null = Get-Command omo -ErrorAction Stop
 
 if ([string]::IsNullOrWhiteSpace($WorkspaceId)) {
     throw "HERDR_WORKSPACE_ID is not available. Pass -WorkspaceId explicitly."
