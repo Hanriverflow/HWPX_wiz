@@ -11,7 +11,7 @@ Describe "Repository verifier" -Tag "Static" {
 
     It "passes its prerequisite-only seam without running the suite" {
         $output = & $script:PowerShellPath -NoProfile -ExecutionPolicy Bypass `
-            -File $script:VerifierPath -PrerequisiteCheckOnly 6>&1 2>&1
+            -File $script:VerifierPath -Tier Static -PrerequisiteCheckOnly 6>&1 2>&1
         $exitCode = $LASTEXITCODE
 
         $exitCode | Should -Be 0 -Because ($output -join [Environment]::NewLine)
@@ -106,7 +106,7 @@ Describe "Repository verifier" -Tag "Static" {
     }
 
     It "reads the locked Kordoc version from the npm lockfile" {
-        . $script:VerifierPath -PrerequisiteCheckOnly | Out-Null
+        . $script:VerifierPath -Tier Static -PrerequisiteCheckOnly | Out-Null
         $nodePath = (Get-Command node.exe -ErrorAction Stop).Source
         $lockPath = Join-Path $script:RepoRoot "tools\kordoc\package-lock.json"
         $packagePath = Join-Path $script:RepoRoot "tools\kordoc\package.json"
@@ -124,7 +124,7 @@ Describe "Repository verifier" -Tag "Static" {
     }
 
     It "warns when Codex Kordoc MCP does not use the local CLI" {
-        . $script:VerifierPath -PrerequisiteCheckOnly | Out-Null
+        . $script:VerifierPath -Tier Static -PrerequisiteCheckOnly | Out-Null
         $configPath = Join-Path $TestDrive "config.toml"
         $expectedCliPath = Join-Path $script:RepoRoot `
             "tools\kordoc\node_modules\kordoc\dist\cli.js"
@@ -153,7 +153,7 @@ args = ["-y", "kordoc@4.14.0", "mcp"]
     }
 
     It "fails a requested HWPX gate when the skill is missing" {
-        . $script:VerifierPath -PrerequisiteCheckOnly | Out-Null
+        . $script:VerifierPath -Tier Static -PrerequisiteCheckOnly | Out-Null
         $missingSkillRoot = Join-Path $TestDrive "missing-hwpx-skill"
         $uvPath = (Get-Command uv -ErrorAction Stop).Source
 
@@ -168,7 +168,7 @@ args = ["-y", "kordoc@4.14.0", "mcp"]
     }
 
     It "rejects a legacy template-only skill without the required integration" {
-        . $script:VerifierPath -PrerequisiteCheckOnly | Out-Null
+        . $script:VerifierPath -Tier Static -PrerequisiteCheckOnly | Out-Null
         $skillRoot = Join-Path $TestDrive "failing-hwpx-skill"
         $scriptsPath = Join-Path $skillRoot "scripts"
         $assetsPath = Join-Path $skillRoot "assets"
@@ -194,7 +194,7 @@ args = ["-y", "kordoc@4.14.0", "mcp"]
         $before = (Get-Location).Path
         Push-Location $TestDrive
         try {
-            $result = . $script:VerifierPath -PrerequisiteCheckOnly
+            $result = . $script:VerifierPath -Tier Static -PrerequisiteCheckOnly
             (Get-Location).Path | Should -Be $TestDrive
             $result | Should -Be 0
         }
@@ -208,7 +208,7 @@ args = ["-y", "kordoc@4.14.0", "mcp"]
     It "returns a nonzero code for a failed external child command" {
         $fakeCommand = Join-Path $TestDrive "failed-child.cmd"
         Set-Content -LiteralPath $fakeCommand -Value "@exit /b 23" -NoNewline
-        . $script:VerifierPath -PrerequisiteCheckOnly | Out-Null
+        . $script:VerifierPath -Tier Static -PrerequisiteCheckOnly | Out-Null
 
         $exitCode = Invoke-VerifyExternalCommand -FilePath $fakeCommand -Arguments @()
 
@@ -218,7 +218,7 @@ args = ["-y", "kordoc@4.14.0", "mcp"]
     It "returns only the exit code when a child emits output" {
         $fakeCommand = Join-Path $TestDrive "chatty-child.cmd"
         Set-Content -LiteralPath $fakeCommand -Value "@echo child-output`r`n@exit /b 23" -NoNewline
-        . $script:VerifierPath -PrerequisiteCheckOnly | Out-Null
+        . $script:VerifierPath -Tier Static -PrerequisiteCheckOnly | Out-Null
 
         $exitCode = Invoke-VerifyExternalCommand -FilePath $fakeCommand -Arguments @()
 
@@ -228,7 +228,7 @@ args = ["-y", "kordoc@4.14.0", "mcp"]
     It "accepts successful child commands that write to stderr" {
         $fakeCommand = Join-Path $TestDrive "stderr-child.cmd"
         Set-Content -LiteralPath $fakeCommand -Value "@echo child-status 1>&2`r`n@exit /b 0" -NoNewline
-        . $script:VerifierPath -PrerequisiteCheckOnly | Out-Null
+        . $script:VerifierPath -Tier Static -PrerequisiteCheckOnly | Out-Null
 
         $exitCode = Invoke-VerifyExternalCommand -FilePath $fakeCommand -Arguments @()
 
